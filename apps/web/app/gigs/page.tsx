@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProfileCard from '@/components/ProfileCard';
 import { getGigProfiles } from '@/lib/firestore';
 import { GIG_CATEGORIES } from '@jobman/shared/src/constants/categories';
 import type { GigProfile } from '@jobman/shared/src/types';
 
-export default function GigsPage() {
+function GigsContent() {
   const params = useSearchParams();
   const [profiles, setProfiles] = useState<GigProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,5 +59,13 @@ export default function GigsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GigsPage() {
+  return (
+    <Suspense>
+      <GigsContent />
+    </Suspense>
   );
 }

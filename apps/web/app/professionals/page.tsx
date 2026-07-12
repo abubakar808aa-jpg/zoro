@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProfileCard from '@/components/ProfileCard';
 import { getProfessionalProfiles } from '@/lib/firestore';
 import { PROFESSIONAL_CATEGORIES } from '@jobman/shared/src/constants/categories';
 import type { ProfessionalProfile } from '@jobman/shared/src/types';
 
-export default function ProfessionalsPage() {
+function ProfessionalsContent() {
   const params = useSearchParams();
   const [profiles, setProfiles] = useState<ProfessionalProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,5 +56,13 @@ export default function ProfessionalsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ProfessionalsPage() {
+  return (
+    <Suspense>
+      <ProfessionalsContent />
+    </Suspense>
   );
 }
