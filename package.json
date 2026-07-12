@@ -1,0 +1,9 @@
+{
+  "name": "jobman",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "web": "yarn workspace @jobman/web dev",
+    "mobile": "yarn workspace @jobman/mobile start"
+  }
+}

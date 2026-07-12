@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "JobMan",
+    "slug": "jobman",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "jobman",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4f46e5"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.jobman.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Used to share images in messages and set your profile photo.",
+        "NSCameraUsageDescription": "Used to take a profile photo."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4f46e5"
+      },
+      "package": "com.jobman.app",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image-picker",
+      "expo-document-picker",
+      "expo-web-browser",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

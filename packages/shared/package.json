@@ -1,0 +1,11 @@
+{
+  "name": "@jobman/shared",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "dependencies": {
+    "firebase": "^10.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
