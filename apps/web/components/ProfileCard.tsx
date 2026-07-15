@@ -11,22 +11,22 @@ export default function ProfileCard({ profile }: Props) {
   const isGig = profile.type === 'gig';
 
   return (
-    <Link href={`/profile/${profile.uid}`} className="block bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all overflow-hidden group">
+    <Link href={`/profile/${profile.uid}`} className="block bg-white rounded-3xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-y-1 transition-all overflow-hidden group">
       {/* Accent bar */}
-      <div className={`h-1.5 w-full ${isGig ? 'bg-gradient-to-r from-orange-400 to-amber-400' : 'bg-gradient-to-r from-primary-500 to-violet-500'}`} />
+      <div className={`h-2 w-full border-b-2 border-ink ${isGig ? 'bg-gradient-to-r from-accent-400 to-orange-400' : 'bg-gradient-to-r from-primary-500 to-accent-400'}`} />
 
       <div className="p-5">
         <div className="flex items-start gap-4">
           {profile.photoURL ? (
-            <Image src={profile.photoURL} alt={profile.name} width={56} height={56} className="rounded-xl object-cover flex-shrink-0 ring-2 ring-slate-100" />
+            <Image src={profile.photoURL} alt={profile.name} width={56} height={56} className="rounded-2xl object-cover flex-shrink-0 ring-2 ring-ink" />
           ) : (
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0 ${isGig ? 'bg-gradient-to-br from-orange-400 to-amber-500' : 'bg-gradient-to-br from-primary-500 to-violet-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl border-2 border-ink flex items-center justify-center text-white font-bold text-xl flex-shrink-0 ${isGig ? 'bg-gradient-to-br from-accent-400 to-orange-500' : 'bg-gradient-to-br from-primary-500 to-accent-500'}`}>
               {profile.name[0]?.toUpperCase()}
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-slate-900 truncate group-hover:text-primary-600 transition-colors">{profile.name}</h3>
-            <p className={`text-sm font-medium mt-0.5 ${isGig ? 'text-orange-600' : 'text-primary-600'}`}>
+            <h3 className="font-display font-bold text-ink truncate group-hover:text-primary-600 transition-colors">{profile.name}</h3>
+            <p className={`text-sm font-semibold mt-0.5 ${isGig ? 'text-accent-600' : 'text-primary-600'}`}>
               {isGig ? (profile as GigProfile).category : (profile as ProfessionalProfile).title}
             </p>
             <p className="text-xs text-slate-400 mt-0.5 truncate">📍 {profile.location}</p>
@@ -48,7 +48,7 @@ export default function ProfileCard({ profile }: Props) {
               <span className="text-sm font-semibold text-slate-600">{(profile as ProfessionalProfile).experienceYears}y exp</span>
             )}
             <div className="mt-1.5">
-              <span className={`badge text-xs font-semibold ${isGig ? 'bg-orange-100 text-orange-700' : 'bg-primary-100 text-primary-700'}`}>
+              <span className={`badge text-xs font-bold ${isGig ? 'bg-pink-100 text-accent-600' : 'bg-primary-100 text-primary-700'}`}>
                 {isGig ? '🔨 Gig' : '💼 Pro'}
               </span>
             </div>

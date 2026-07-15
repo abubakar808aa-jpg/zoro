@@ -8,23 +8,23 @@ export default function JobCard({ job }: { job: JobListing }) {
   const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
 
   const typeConfig: Record<string, { color: string; label: string; bar: string }> = {
-    fulltime:  { color: 'bg-emerald-100 text-emerald-700', label: 'Full-Time',  bar: 'from-emerald-400 to-teal-400' },
-    parttime:  { color: 'bg-yellow-100 text-yellow-700',   label: 'Part-Time',  bar: 'from-yellow-400 to-amber-400' },
-    gig:       { color: 'bg-orange-100 text-orange-700',   label: 'Gig',        bar: 'from-orange-400 to-amber-400' },
-    contract:  { color: 'bg-violet-100 text-violet-700',   label: 'Contract',   bar: 'from-violet-500 to-primary-500' },
+    fulltime:  { color: 'bg-acid-200 text-ink',       label: 'Full-Time',  bar: 'from-acid-400 to-emerald-400' },
+    parttime:  { color: 'bg-yellow-100 text-ink',     label: 'Part-Time',  bar: 'from-yellow-400 to-amber-400' },
+    gig:       { color: 'bg-pink-100 text-accent-600', label: 'Gig',       bar: 'from-accent-400 to-orange-400' },
+    contract:  { color: 'bg-primary-100 text-primary-700', label: 'Contract', bar: 'from-violet-500 to-accent-400' },
   };
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
 
   return (
-    <Link href={`/jobs/${job.id}`} className="block bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all overflow-hidden group">
+    <Link href={`/jobs/${job.id}`} className="block bg-white rounded-3xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-y-1 transition-all overflow-hidden group">
       {/* Accent bar */}
-      <div className={`h-1.5 w-full bg-gradient-to-r ${cfg.bar}`} />
+      <div className={`h-2 w-full bg-gradient-to-r ${cfg.bar} border-b-2 border-ink`} />
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-slate-900 text-lg leading-tight group-hover:text-primary-600 transition-colors">{job.title}</h3>
+            <h3 className="font-display font-bold text-ink text-lg leading-tight group-hover:text-primary-600 transition-colors">{job.title}</h3>
             <p className="text-sm text-slate-500 mt-0.5">
               🏢 {job.postedByName} · 📍 {job.location}{job.remote ? ' · 🏠 Remote OK' : ''}
             </p>
