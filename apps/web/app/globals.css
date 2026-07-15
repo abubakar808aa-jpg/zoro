@@ -2,31 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 font-sans;
+    @apply bg-[#faf7ff] text-slate-900 font-sans;
+  }
+  h1, h2, h3 {
+    @apply font-display;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-primary-600 hover:bg-primary-500 text-white font-bold px-5 py-2.5 rounded-2xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-x-0.5 hover:-translate-y-0.5 active:shadow-none active:translate-x-0.5 active:translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-pop-sm disabled:translate-x-0 disabled:translate-y-0;
   }
   .btn-secondary {
-    @apply bg-white hover:bg-slate-50 text-slate-700 font-semibold px-5 py-2.5 rounded-xl border border-slate-200 transition-colors;
+    @apply bg-white hover:bg-acid-300 text-ink font-bold px-5 py-2.5 rounded-2xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-x-0.5 hover:-translate-y-0.5 active:shadow-none active:translate-x-0.5 active:translate-y-0.5 transition-all;
   }
   .btn-google {
-    @apply flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold px-5 py-2.5 rounded-xl border border-slate-200 transition-colors w-full;
+    @apply flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-ink font-bold px-5 py-2.5 rounded-2xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all w-full;
   }
   .input {
-    @apply w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white;
+    @apply w-full border-2 border-ink/15 rounded-2xl px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white transition-colors;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow;
+    @apply bg-white rounded-3xl border-2 border-ink shadow-pop p-6 hover:-translate-y-1 transition-transform;
   }
   .badge {
-    @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full;
+    @apply inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full;
+  }
+  .sticker {
+    @apply inline-flex items-center gap-1.5 font-display font-bold text-sm px-4 py-1.5 rounded-full border-2 border-ink shadow-pop-sm;
   }
 }
