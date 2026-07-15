@@ -1,10 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
+import { verifyFirebaseToken } from '@/lib/verify-token';
 
 export const maxDuration = 30;
 
 const MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5';
+
+// Per-uid sliding window. In-memory: on serverless this is per-instance and
+// resets on cold start, so it's abuse mitigation rather than a hard quota.
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
+const requestLog = new Map<string, number[]>();
+
+function checkRateLimit(uid: string): boolean {
+  const now = Date.now();
+  const recent = (requestLog.get(uid) ?? []).filter(t => now - t < RATE_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT) return false;
+  recent.push(now);
+  requestLog.set(uid, recent);
+  return true;
+}
 
 const CATEGORY_IDS = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES]
   .map(c => `${c.id} (${c.label})`).join(', ');
@@ -107,6 +123,16 @@ export async function POST(req: Request) {
       { error: 'AI is not configured. Add ANTHROPIC_API_KEY to apps/web/.env.local and restart the dev server.' },
       { status: 503 }
     );
+  }
+
+  let uid: string;
+  try {
+    uid = await verifyFirebaseToken(req.headers.get('authorization'));
+  } catch {
+    return NextResponse.json({ error: 'Sign in to use AI features.' }, { status: 401 });
+  }
+  if (!checkRateLimit(uid)) {
+    return NextResponse.json({ error: 'Too many AI requests — try again in a minute.' }, { status: 429 });
   }
 
   try {

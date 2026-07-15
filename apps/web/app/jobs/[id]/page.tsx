@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { getJob, applyToJob, getProfile } from '@/lib/firestore';
+import { getJob, applyToJob, getProfile, setJobStatus, deleteJob } from '@/lib/firestore';
 import { generateCoverLetter } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
 import type { JobListing } from '@jobman/shared/src/types';
@@ -48,14 +48,31 @@ export default function JobDetailPage() {
 
   async function handleApply(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) { router.push('/sign-in'); return; }
+    if (!user || !job) { router.push('/sign-in'); return; }
     setApplying(true); setError('');
     try {
-      await applyToJob(id, user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter);
+      await applyToJob(
+        { id, title: job.title, postedBy: job.postedBy },
+        user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter
+      );
       setApplied(true);
     } catch (err: any) {
       setError(err.message);
     } finally { setApplying(false); }
+  }
+
+  async function handleToggleStatus() {
+    if (!job) return;
+    const next = job.status === 'open' ? 'closed' : 'open';
+    await setJobStatus(id, next);
+    setJob({ ...job, status: next });
+  }
+
+  async function handleDelete() {
+    if (!job) return;
+    if (!window.confirm('Delete this job posting? This cannot be undone.')) return;
+    await deleteJob(id);
+    router.push('/dashboard');
   }
 
   if (loading) return <div className="max-w-3xl mx-auto px-4 py-10"><div className="card animate-pulse h-64" /></div>;
@@ -88,7 +105,24 @@ export default function JobDetailPage() {
           <span className="badge bg-blue-100 text-blue-700">{job.type}</span>
           <span className="badge bg-slate-100 text-slate-600">{job.category}</span>
           <span className="badge bg-slate-100 text-slate-500">{job.applicantCount} applicants</span>
+          {job.status === 'closed' && <span className="badge bg-red-100 text-red-600">Closed</span>}
         </div>
+
+        {/* Owner controls */}
+        {user && user.uid === job.postedBy && (
+          <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-100">
+            <Link href={`/dashboard/jobs/${id}/applicants`} className="btn-primary text-sm">
+              👥 View Applicants ({job.applicantCount})
+            </Link>
+            <button type="button" onClick={handleToggleStatus} className="btn-secondary text-sm">
+              {job.status === 'open' ? '🔒 Close Job' : '🔓 Reopen Job'}
+            </button>
+            <button type="button" onClick={handleDelete}
+              className="text-sm font-semibold text-red-500 hover:text-red-600 px-3 py-2">
+              🗑️ Delete
+            </button>
+          </div>
+        )}
 
         <hr className="my-5 border-slate-100" />
 
@@ -115,7 +149,13 @@ export default function JobDetailPage() {
       </div>
 
       {/* Apply Section */}
-      {accountType !== 'employer' && (
+      {accountType !== 'employer' && job.status !== 'open' ? (
+        <div className="card text-center py-8">
+          <div className="text-4xl mb-2">🔒</div>
+          <p className="font-semibold text-slate-900">This job is closed</p>
+          <p className="text-sm text-slate-500 mt-1">The employer is no longer accepting applications.</p>
+        </div>
+      ) : accountType !== 'employer' && (
         <div className="card">
           <h2 className="font-bold text-slate-900 text-lg mb-4">Apply for this Job</h2>
           {!user ? (

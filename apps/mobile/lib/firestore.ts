@@ -18,9 +18,15 @@ export async function getJob(id: string) {
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as JobListing) : null;
 }
 
-export async function applyToJob(jobId: string, applicantId: string, applicantName: string, coverLetter: string) {
-  await addDoc(collection(db, 'applications'), { jobId, applicantId, applicantName, coverLetter, status: 'pending', appliedAt: serverTimestamp() });
-  await updateDoc(doc(db, 'jobs', jobId), { applicantCount: increment(1) });
+export async function applyToJob(
+  job: Pick<JobListing, 'id' | 'title' | 'postedBy'>,
+  applicantId: string, applicantName: string, coverLetter: string
+) {
+  await addDoc(collection(db, 'applications'), {
+    jobId: job.id, jobTitle: job.title, jobPostedBy: job.postedBy,
+    applicantId, applicantName, coverLetter, status: 'pending', appliedAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'jobs', job.id), { applicantCount: increment(1) });
 }
 
 export async function getProfile(uid: string) {

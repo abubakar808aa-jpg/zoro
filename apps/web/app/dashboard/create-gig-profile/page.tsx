@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { saveGigProfile, uploadProfilePhoto } from '@/lib/firestore';
+import { saveGigProfile, uploadProfilePhoto, getProfile } from '@/lib/firestore';
 import { GIG_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import { generateBio } from '@/lib/ai';
 
@@ -24,6 +24,25 @@ export default function CreateGigProfilePage() {
   const [saving, setSaving] = useState(false);
   const [aiWriting, setAiWriting] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  // Prefill when an existing gig profile is being edited
+  useEffect(() => {
+    if (!user) return;
+    getProfile(user.uid).then(p => {
+      if (!p || p.type !== 'gig') return;
+      setEditing(true);
+      setForm({
+        category: p.category ?? '',
+        bio: p.bio ?? '',
+        skills: (p.skills ?? []).join(', '),
+        hourlyRate: p.hourlyRate ? String(p.hourlyRate) : '',
+        location: p.location ?? '',
+        availability: (p.availability as any) || 'full-time',
+      });
+      if (p.photoURL) setPhotoPreview(p.photoURL);
+    }).catch(() => {});
+  }, [user]);
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
@@ -99,7 +118,7 @@ export default function CreateGigProfilePage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Create Gig Worker Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{editing ? 'Edit' : 'Create'} Gig Worker Profile</h1>
         <p className="text-slate-500 mt-1">Let employers find you based on your skills.</p>
       </div>
 
@@ -214,7 +233,7 @@ export default function CreateGigProfilePage() {
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={() => router.back()} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary flex-1">
-            {saving ? 'Saving…' : 'Create Profile'}
+            {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Profile'}
           </button>
         </div>
       </form>

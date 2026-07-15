@@ -4,6 +4,9 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "web": "yarn workspace @jobman/web dev",
-    "mobile": "yarn workspace @jobman/mobile start"
+    "mobile": "yarn workspace @jobman/mobile start",
+    "typecheck": "yarn workspace @jobman/web typecheck",
+    "build:web": "yarn workspace @jobman/web build",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage"
   }
 }

@@ -1,9 +1,21 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
+    // Profile photos: public (shown on marketplace cards), owner-only writes.
+    match /profiles/{uid}/{file} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
+    // Message attachments: signed-in reads; writes limited to 10MB.
+    // (Participant checks live in Firestore rules on the messages that link these files.)
+    match /messages/{convId}/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+    // No catch-all: any other path is denied.
   }
 }

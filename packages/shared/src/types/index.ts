@@ -94,6 +94,8 @@ export interface JobListing {
 export interface Application {
   id: string;
   jobId: string;
+  jobTitle: string;
+  jobPostedBy: string;    // uid of the job's poster — used by security rules
   applicantId: string;
   applicantName: string;
   coverLetter: string;
@@ -109,6 +111,7 @@ export interface Conversation {
   lastMessage: string;
   lastMessageAt: Date;
   lastSenderId: string;
+  lastRead?: Record<string, Date>;  // per-participant timestamp of last time they opened the conversation
 }
 
 export interface Message {

@@ -1,21 +1,18 @@
 # JobMan — Launch Checklist (detailed steps)
 
-## Task 1 — Create Firestore Indexes (~5 min)
+## Task 1 — Deploy Firestore Indexes + Security Rules (~5 min)
 
-Firebase Console → your `jobman` project → **Firestore Database** → **Indexes** tab → **Composite** → **Create index**. Create these 4 (Query scope: Collection):
+Indexes and rules now live in the repo (`firestore.indexes.json`, `firestore.rules`, `storage.rules`) and deploy with one command — no console copy-paste:
 
-| # | Collection ID | Fields (in order) |
-|---|---|---|
-| 1 | `profiles` | `type` Ascending, `rating` Descending |
-| 2 | `profiles` | `type` Ascending, `category` Ascending, `rating` Descending |
-| 3 | `jobs` | `status` Ascending, `createdAt` Descending |
-| 4 | `conversations` | `participants` **Array contains**, `lastMessageAt` Descending |
+```bash
+npm install -g firebase-tools   # once
+firebase login                  # once
+yarn deploy:rules               # deploys rules + indexes + storage rules
+```
 
-Each shows "Building…" for 1–2 minutes, then "Enabled".
+Indexes show "Building…" in the console for 1–2 minutes, then "Enabled".
 
-Shortcut: if a page in the app shows a red console error with a
-`https://console.firebase.google.com/...` link, clicking that link
-pre-fills the exact index — just press Create.
+> The deployed rules are locked down: only job owners can edit/close their jobs, applications are visible only to the applicant and the job poster, and conversation messages only to participants. Do NOT replace them with test-mode rules.
 
 ## Task 2 — Full End-to-End Test (~15 min)
 
@@ -33,8 +30,13 @@ pre-fills the exact index — just press Create.
 9. Send a text + attach a photo (📎)
 
 **Back as the worker:**
-10. Sign out, sign in with email A → Messages → reply (try the ✨ suggestions)
+10. Sign out, sign in with email A → Messages (note the unread dot) → reply (try the ✨ suggestions)
 11. Jobs tab → open the employer's job → **✨ Write with AI** cover letter → Apply
+12. Dashboard → check **My Applications** shows the application as *pending*
+
+**Back as the employer:**
+13. Dashboard → My Job Postings → click **👥 1 applicant** → read the cover letter → **✓ Accept**
+14. Try **Close** on the job → confirm it disappears from the public Jobs list
 
 If every step works, your marketplace is fully functional.
 
@@ -57,18 +59,10 @@ If every step works, your marketplace is fully functional.
 ## Task 4 — Deploy the Website (Vercel, free)
 
 1. Create accounts: github.com and vercel.com (sign in to Vercel *with* GitHub)
-2. Push the code:
-   ```bash
-   cd ~/Desktop/JobMan
-   git init && git add . && git commit -m "JobMan v1"
-   # create an empty repo named jobman on github.com, then:
-   git remote add origin https://github.com/YOUR_USERNAME/jobman.git
-   git push -u origin main
-   ```
-   (`.env.local` is gitignored — your API key will NOT be uploaded)
-3. Vercel → **Add New… → Project** → Import `jobman`
-4. Set **Root Directory** to `apps/web`
-5. **Environment Variables**: add `ANTHROPIC_API_KEY` = your key
+2. Push the code (`.env.local` is gitignored — your API key will NOT be uploaded)
+3. Vercel → **Add New… → Project** → Import the repo
+4. Set **Root Directory** to `apps/web` (leave "Include source files outside of the Root Directory" enabled — the app imports from `packages/shared`)
+5. **Environment Variables**: add everything from `apps/web/.env.example` — at minimum `ANTHROPIC_API_KEY`
 6. Deploy → you get `jobman-xyz.vercel.app`
 7. **IMPORTANT:** Firebase Console → Authentication → Settings →
    **Authorized domains** → Add your vercel.app domain (sign-in breaks without this)
@@ -77,55 +71,15 @@ If every step works, your marketplace is fully functional.
 Vercel project → Settings → Domains → Add → follow the DNS instructions →
 also add the domain to Firebase Authorized domains.
 
-## Task 5 — Security Rules (BEFORE real users; test mode expires in 30 days)
+## Task 5 — CI (already set up)
 
-Firebase Console → Firestore Database → **Rules** tab → replace with:
+`.github/workflows/ci.yml` runs typecheck + web build on every push and PR.
+Nothing to do — just keep it green. When you add a test framework, wire it
+into the same workflow.
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /profiles/{uid} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /jobs/{id} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.postedBy;
-    }
-    match /applications/{id} {
-      allow read, create: if request.auth != null;
-    }
-    match /conversations/{id} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null
-        && request.auth.uid in resource.data.participants;
-      match /messages/{msgId} {
-        allow read, create: if request.auth != null;
-      }
-    }
-  }
-}
-```
+## Notes on the AI features
 
-Then **Storage → Rules** → replace with:
-
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-  }
-}
-```
-
-Click **Publish** on both.
+- `/api/ai` requires a signed-in user (Firebase ID token) and rate-limits each
+  user to 20 AI calls/minute — your Anthropic key can't be drained by
+  anonymous traffic.
+- Model is configurable via the `AI_MODEL` env var (default `claude-haiku-4-5`).

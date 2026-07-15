@@ -1,10 +1,15 @@
 // Client helpers for the AI API route. All calls go through /api/ai so the
 // Anthropic API key never leaves the server.
 
+import { auth } from './firebase';
+
 async function askAI<T>(task: string, payload: object): Promise<T> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Sign in to use AI features.');
+
   const res = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ task, payload }),
   });
   const data = await res.json();

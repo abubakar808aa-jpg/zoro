@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { saveProfessionalProfile, uploadProfilePhoto } from '@/lib/firestore';
+import { saveProfessionalProfile, uploadProfilePhoto, getProfile } from '@/lib/firestore';
 import { PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import type { Education, Experience } from '@jobman/shared/src/types';
 import { generateBio } from '@/lib/ai';
@@ -31,6 +31,27 @@ export default function CreateProProfilePage() {
   const [saving, setSaving] = useState(false);
   const [aiWriting, setAiWriting] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  // Prefill when an existing professional profile is being edited
+  useEffect(() => {
+    if (!user) return;
+    getProfile(user.uid).then(p => {
+      if (!p || p.type !== 'professional') return;
+      setEditing(true);
+      setForm({
+        title: p.title ?? '',
+        category: p.category ?? '',
+        bio: p.bio ?? '',
+        skills: (p.skills ?? []).join(', '),
+        experienceYears: p.experienceYears ? String(p.experienceYears) : '',
+        location: p.location ?? '',
+      });
+      if (p.education?.length) setEducation(p.education);
+      if (p.experience?.length) setExperience(p.experience);
+      if (p.photoURL) setPhotoPreview(p.photoURL);
+    }).catch(() => {});
+  }, [user]);
 
   function setField(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
@@ -136,7 +157,7 @@ export default function CreateProProfilePage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Create Professional Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{editing ? 'Edit' : 'Create'} Professional Profile</h1>
         <p className="text-slate-500 mt-1">Showcase your credentials and get hired for full-time roles.</p>
       </div>
 
@@ -310,7 +331,7 @@ export default function CreateProProfilePage() {
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={() => router.back()} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary flex-1">
-            {saving ? 'Saving…' : 'Create Profile'}
+            {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Profile'}
           </button>
         </div>
       </form>
