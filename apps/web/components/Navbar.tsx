@@ -8,7 +8,7 @@ import { useAuth } from './AuthProvider';
 import { logout } from '@/lib/auth';
 
 export default function Navbar() {
-  const { user, accountType } = useAuth();
+  const { user, accountType, isAdmin } = useAuth();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -79,6 +79,11 @@ export default function Navbar() {
                       <Link href={`/profile/${user.uid}`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                         👤 My Profile
                       </Link>
+                      {isAdmin && (
+                        <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-accent-600 font-semibold hover:bg-slate-50">
+                          🛡️ Admin
+                        </Link>
+                      )}
                       <hr className="my-1 border-slate-100" />
                       <button onClick={handleLogout} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50">
                         🚪 Sign Out
