@@ -375,10 +375,6 @@ export async function getOpenReports(): Promise<Report[]> {
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Report));
 }
 
-export async function resolveReport(id: string) {
-  await updateDoc(doc(db, 'reports', id), { resolved: true });
-}
-
 // ── Admin (client reads; mutations go through /api/admin with server-side checks) ──
 
 export async function getUserDoc(uid: string): Promise<User | null> {

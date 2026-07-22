@@ -1,9 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     match /users/{uid} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      // Users manage their own doc but can never grant themselves admin or
+      // touch ban state — those fields are written only by the server
+      // (Admin SDK in /api/admin, which bypasses these rules).
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['isAdmin', 'banned', 'bannedReason']);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['isAdmin', 'banned', 'bannedReason']);
     }
     match /profiles/{uid} {
       allow read: if true;
@@ -12,11 +24,15 @@ service cloud.firestore {
     match /jobs/{id} {
       allow read: if true;
       allow create: if request.auth != null
-        && request.resource.data.postedBy == request.auth.uid;
-      // Owner can update anything. Any signed-in user may ONLY bump
-      // applicantCount by exactly 1 — applyToJob increments it as the applicant.
+        && request.resource.data.postedBy == request.auth.uid
+        && !request.resource.data.keys().hasAny(['boosted', 'boostedUntil']);
+      // Owner can update anything EXCEPT boost fields (those are set only by
+      // the Stripe webhook via the Admin SDK after payment). Any signed-in
+      // user may ONLY bump applicantCount by exactly 1 — applyToJob does this.
       allow update: if request.auth != null && (
-        request.auth.uid == resource.data.postedBy
+        (request.auth.uid == resource.data.postedBy
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['boosted', 'boostedUntil']))
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicantCount'])
             && request.resource.data.applicantCount == resource.data.applicantCount + 1)
       );
@@ -47,6 +63,28 @@ service cloud.firestore {
           && request.resource.data.senderId == request.auth.uid
           && request.auth.uid in get(/databases/$(database)/documents/conversations/$(id)).data.participants;
       }
+    }
+    match /follows/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.followerId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.followerId == request.auth.uid;
+    }
+    match /activities/{id} {
+      allow read: if request.auth != null;
+      // You can only publish activity as yourself.
+      allow create: if request.auth != null
+        && request.resource.data.actorId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.actorId == request.auth.uid;
+    }
+    match /reports/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.resolved == false;
+      // Only staff can browse reports; resolution happens server-side.
+      allow read: if isAdmin();
     }
   }
 }

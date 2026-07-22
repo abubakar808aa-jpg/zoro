@@ -83,3 +83,46 @@ into the same workflow.
   user to 20 AI calls/minute — your Anthropic key can't be drained by
   anonymous traffic.
 - Model is configurable via the `AI_MODEL` env var (default `claude-haiku-4-5`).
+- New AI features: **Vibe Check** (job-fit score on job pages), **Skill Gaps**
+  (after applying), and **Salary Intel** ("Is this pay fair?"). No extra setup —
+  they use the same route and key.
+
+## Task 6 — Enable payments (boosted listings)
+
+1. Create a Stripe account → https://dashboard.stripe.com/apikeys → copy the
+   **Secret key** into `STRIPE_SECRET_KEY` (start with test mode).
+2. Dashboard → Developers → **Webhooks** → Add endpoint:
+   `https://<your-domain>/api/stripe/webhook`, event `checkout.session.completed`.
+   Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+3. Firebase Console → Project Settings → **Service accounts** → Generate new
+   private key → paste the JSON (one line) into `FIREBASE_SERVICE_ACCOUNT_KEY`.
+   (The webhook needs it to mark jobs as boosted.)
+4. Test with card `4242 4242 4242 4242` — the job should show **⚡ Featured**
+   and jump to the top of the Jobs page for 7 days. You keep 100% of the $5.
+
+## Task 7 — Make yourself admin
+
+1. Firebase Console → Firestore → `users` → your user doc → add field
+   `isAdmin` (boolean) = `true`.
+2. Reload the app → avatar menu now shows **🛡️ Admin** → moderation dashboard
+   (ban users, remove jobs, handle reports).
+   Only ever set this field from the console — the security rules prevent
+   anyone from granting it to themselves.
+
+## Task 8 — LinkedIn import (optional)
+
+1. https://linkedin.com/developers → Create app → add the product
+   **"Sign In with LinkedIn using OpenID Connect"**.
+2. Auth tab → add redirect URL: `https://<your-domain>/api/linkedin/callback`
+   (and `http://localhost:3000/api/linkedin/callback` for dev).
+3. Set `NEXT_PUBLIC_LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET`.
+   The "Import from LinkedIn" button appears automatically on profile pages.
+
+## New since v1
+
+- **Daily themes**: the app's colors rotate through 7 palettes (one per
+  weekday) automatically. Nothing to configure.
+- **Feed + follows**: users follow each other from profiles; `/feed` shows
+  job posts, hires, new joins, and career tips from people they follow.
+- **Report flag** on feed posts feeds the admin Reports queue.
+- Remember to run `yarn deploy:rules` again — rules and indexes changed.
