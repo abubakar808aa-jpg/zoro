@@ -9,6 +9,7 @@ import { db, storage } from './firebase';
 import type {
   JobListing, GigProfile, ProfessionalProfile, Message, Conversation,
   Application, ApplicationStatus, JobStatus,
+  Follow, FeedEvent, Report, User,
 } from '@jobman/shared/src/types';
 
 export const JOBS_PAGE_SIZE = 20;
@@ -39,6 +40,25 @@ export async function getJobs(
     jobs: snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)),
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
   };
+}
+
+// Boosted jobs are queried separately (not merged into the paginated query):
+// orderBy('boosted') would exclude every job doc that predates the field.
+export async function getBoostedJobs(): Promise<JobListing[]> {
+  const snap = await getDocs(query(
+    collection(db, 'jobs'),
+    where('status', '==', 'open'),
+    where('boosted', '==', true),
+    orderBy('createdAt', 'desc'),
+    limit(10),
+  ));
+  const now = Date.now();
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as JobListing))
+    .filter(j => {
+      const until = j.boostedUntil as unknown as Timestamp | undefined;
+      return until ? until.toMillis() > now : false;
+    });
 }
 
 export async function getJob(id: string) {
@@ -239,4 +259,142 @@ export async function uploadProfilePhoto(uid: string, file: File): Promise<strin
   const storageRef = ref(storage, `profiles/${uid}/photo`);
   await uploadBytes(storageRef, file);
   return getDownloadURL(storageRef);
+}
+
+// ── Social: follows ───────────────────────────────────────────────────────
+
+export async function followUser(
+  followerId: string,
+  followed: { uid: string; name: string; photoURL?: string }
+) {
+  await setDoc(doc(db, 'follows', `${followerId}_${followed.uid}`), {
+    followerId,
+    followedId: followed.uid,
+    followedName: followed.name,
+    followedPhoto: followed.photoURL ?? '',
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function unfollowUser(followerId: string, followedId: string) {
+  await deleteDoc(doc(db, 'follows', `${followerId}_${followedId}`));
+}
+
+export async function isFollowing(followerId: string, followedId: string) {
+  const snap = await getDoc(doc(db, 'follows', `${followerId}_${followedId}`));
+  return snap.exists();
+}
+
+export async function getFollowing(uid: string): Promise<Follow[]> {
+  const snap = await getDocs(query(
+    collection(db, 'follows'),
+    where('followerId', '==', uid),
+    orderBy('createdAt', 'desc'),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Follow));
+}
+
+export async function getFollowerCount(uid: string): Promise<number> {
+  const snap = await getDocs(query(
+    collection(db, 'follows'),
+    where('followedId', '==', uid),
+  ));
+  return snap.size;
+}
+
+// ── Social: activity feed ─────────────────────────────────────────────────
+
+export async function createActivity(event: Omit<FeedEvent, 'id' | 'createdAt'>) {
+  await addDoc(collection(db, 'activities'), {
+    ...event,
+    createdAt: serverTimestamp(),
+  });
+}
+
+// Firestore 'in' supports max 30 values; chunk the following list.
+export async function getFeed(followingUids: string[], selfUid: string): Promise<FeedEvent[]> {
+  const uids = Array.from(new Set([selfUid, ...followingUids]));
+  const chunks: string[][] = [];
+  for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
+
+  const results = await Promise.all(chunks.map(chunk =>
+    getDocs(query(
+      collection(db, 'activities'),
+      where('actorId', 'in', chunk),
+      orderBy('createdAt', 'desc'),
+      limit(30),
+    ))
+  ));
+  const events = results.flatMap(snap =>
+    snap.docs.map(d => ({ id: d.id, ...d.data() } as FeedEvent))
+  );
+  events.sort((a, b) => {
+    const ta = (a.createdAt as unknown as Timestamp)?.toMillis?.() ?? 0;
+    const tb = (b.createdAt as unknown as Timestamp)?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+  return events.slice(0, 30);
+}
+
+export async function deleteActivity(id: string) {
+  await deleteDoc(doc(db, 'activities', id));
+}
+
+// ── Moderation: reports ───────────────────────────────────────────────────
+
+export async function reportContent(report: Omit<Report, 'id' | 'createdAt' | 'resolved'>) {
+  await addDoc(collection(db, 'reports'), {
+    ...report,
+    resolved: false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getOpenReports(): Promise<Report[]> {
+  const snap = await getDocs(query(
+    collection(db, 'reports'),
+    where('resolved', '==', false),
+    orderBy('createdAt', 'desc'),
+    limit(100),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Report));
+}
+
+export async function resolveReport(id: string) {
+  await updateDoc(doc(db, 'reports', id), { resolved: true });
+}
+
+// ── Admin (client reads; mutations go through /api/admin with server-side checks) ──
+
+export async function getUserDoc(uid: string): Promise<User | null> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? ({ uid: snap.id, ...snap.data() } as User) : null;
+}
+
+export const USERS_PAGE_SIZE = 50;
+
+export async function getAllUsers(
+  cursor?: QueryDocumentSnapshot<DocumentData> | null
+): Promise<{ users: User[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const constraints: any[] = [orderBy('createdAt', 'desc')];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(USERS_PAGE_SIZE));
+  const snap = await getDocs(query(collection(db, 'users'), ...constraints));
+  return {
+    users: snap.docs.map(d => ({ uid: d.id, ...d.data() } as User)),
+    lastDoc: snap.docs.length === USERS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+export async function getAllJobs(
+  cursor?: QueryDocumentSnapshot<DocumentData> | null
+): Promise<{ jobs: JobListing[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const constraints: any[] = [orderBy('createdAt', 'desc')];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(JOBS_PAGE_SIZE));
+  const snap = await getDocs(query(collection(db, 'jobs'), ...constraints));
+  return {
+    jobs: snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)),
+    lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
 }
