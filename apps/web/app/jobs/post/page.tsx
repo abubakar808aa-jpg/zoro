@@ -6,6 +6,7 @@ import { createJob } from '@/lib/firestore';
 import { generateJobPosting } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
+import { GEN_Z_TAGS, type GenZTag } from '@jobman/shared/src/types';
 
 const ALL_CATEGORIES = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES];
 
@@ -19,6 +20,11 @@ export default function PostJobPage() {
     salaryMin: '', salaryMax: '', salaryPeriod: 'annual',
     skills: '', requirements: '',
   });
+  const [genZTags, setGenZTags] = useState<GenZTag[]>([]);
+
+  function toggleTag(tag: GenZTag) {
+    setGenZTags(tags => tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag]);
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [brief, setBrief] = useState('');
@@ -74,6 +80,7 @@ export default function PostJobPage() {
         postedByName: user.displayName ?? user.email ?? 'Anonymous',
         postedByPhoto: user.photoURL ?? '',
         status: 'open',
+        genZTags,
       });
       router.push(`/jobs/${id}`);
     } catch (err: any) {
@@ -148,6 +155,18 @@ export default function PostJobPage() {
             <input type="checkbox" checked={form.remote} onChange={e => set('remote', e.target.checked)} className="rounded" />
             Remote / hybrid OK
           </label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">What makes this job a vibe? <span className="text-slate-400 font-normal">(these attract way more applicants)</span></label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {GEN_Z_TAGS.map(t => (
+              <button key={t.id} type="button" onClick={() => toggleTag(t.id)}
+                className={`badge px-3 py-1.5 text-sm font-semibold cursor-pointer transition-colors ${genZTags.includes(t.id) ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {t.emoji} {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>

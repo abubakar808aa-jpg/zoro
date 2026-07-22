@@ -64,3 +64,52 @@ export type ParsedSearch = {
 export function parseJobSearch(query: string) {
   return askAI<ParsedSearch>('parse-search', { query });
 }
+
+export type VibeCheck = {
+  score: number;
+  pros: string[];
+  cons: string[];
+  verdict: string;
+};
+
+export function vibeCheckJob(p: {
+  jobTitle: string;
+  jobDescription: string;
+  requirements?: string[];
+  salary?: string;
+  candidateSummary?: string;
+}) {
+  return askAI<VibeCheck>('vibe-check', p);
+}
+
+export type SkillGaps = {
+  matched: string[];
+  gaps: string[];
+  resources: { skill: string; how: string }[];
+  note: string;
+};
+
+export function analyzeSkillGaps(p: {
+  jobTitle: string;
+  requirements?: string[];
+  jobSkills?: string[];
+  candidateSkills?: string[];
+}) {
+  return askAI<SkillGaps>('skill-gaps', p);
+}
+
+export type SalaryIntel = {
+  fairness: 'below' | 'fair' | 'above';
+  marketRange: string;
+  note: string;
+};
+
+export function checkSalaryFairness(p: {
+  jobTitle: string;
+  location?: string;
+  remote?: boolean;
+  salary: string;
+  type: string;
+}) {
+  return askAI<SalaryIntel>('salary-intel', p);
+}

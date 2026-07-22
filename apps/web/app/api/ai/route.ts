@@ -99,6 +99,48 @@ Return ONLY JSON:
   "maxHourly": number or null (if they mention a max hourly rate)
 }`;
 
+    case 'vibe-check':
+      return `You are "Vibe Check" on JobMan, a US job marketplace popular with Gen-Z. Score how well this job fits this candidate, honestly but with playful Gen-Z energy (no cringe, no slang overload).
+Job title: ${p.jobTitle}
+Job description: ${p.jobDescription}
+${p.requirements?.length ? `Requirements: ${p.requirements.join('; ')}` : ''}
+${p.salary ? `Pay: ${p.salary}` : ''}
+Candidate profile: ${p.candidateSummary || 'No profile provided — score the job on its own merits (clarity, pay transparency, flexibility).'}
+Return ONLY JSON:
+{
+  "score": integer 1-10,
+  "pros": ["2-4 short reasons this could be a great fit"],
+  "cons": ["1-3 short honest concerns or gaps"],
+  "verdict": "one punchy sentence, max 15 words"
+}`;
+
+    case 'skill-gaps':
+      return `You are a career coach on JobMan, a US job marketplace. Compare the candidate's skills with the job's requirements and identify what they're missing, plus how to close each gap fast and cheap.
+Job title: ${p.jobTitle}
+Requirements: ${(p.requirements ?? []).join('; ')}
+Job skills wanted: ${(p.jobSkills ?? []).join(', ')}
+Candidate skills: ${(p.candidateSkills ?? []).join(', ') || 'unknown'}
+Return ONLY JSON:
+{
+  "matched": ["skills the candidate already has that this job wants"],
+  "gaps": ["skills the job wants that the candidate lacks — max 4"],
+  "resources": [{ "skill": "gap skill", "how": "one concrete, mostly-free way to learn it fast (e.g. a known course platform, certification, or practice project)" }],
+  "note": "one encouraging sentence, max 20 words"
+}`;
+
+    case 'salary-intel':
+      return `You are a salary transparency tool on JobMan, a US job marketplace. Judge whether this pay is fair for the US market in 2026.
+Job title: ${p.jobTitle}
+Location: ${p.location || 'US'}${p.remote ? ' (remote)' : ''}
+Offered pay: ${p.salary}
+Job type: ${p.type}
+Return ONLY JSON:
+{
+  "fairness": "below" | "fair" | "above",
+  "marketRange": "typical US range as a short string, e.g. '$25–35/hr' or '$70k–95k'",
+  "note": "one plain-English sentence explaining the judgement, max 25 words"
+}`;
+
     default:
       throw new Error(`Unknown task: ${task}`);
   }
