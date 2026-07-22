@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/components/AuthProvider';
 import {
   getJob, getApplicationsForJob, updateApplicationStatus, getOrCreateConversation,
+  createActivity,
 } from '@/lib/firestore';
 import type { JobListing, Application, ApplicationStatus } from '@jobman/shared/src/types';
 
@@ -43,6 +44,15 @@ export default function ApplicantsPage() {
     setApplications(apps => apps.map(a => a.id === app.id ? { ...a, status } : a));
     try {
       await updateApplicationStatus(app.id, status);
+      if (status === 'accepted' && user) {
+        createActivity({
+          actorId: user.uid,
+          actorName: user.displayName ?? 'An employer',
+          actorPhoto: user.photoURL ?? '',
+          type: 'hired',
+          payload: { jobTitle: app.jobTitle, applicantName: app.applicantName },
+        }).catch(() => {});
+      }
     } catch (err: any) {
       setApplications(prev);
       setError(err.message);

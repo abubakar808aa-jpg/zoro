@@ -22,6 +22,13 @@ export async function createJob(data: Omit<JobListing, 'id' | 'applicantCount' |
     applicantCount: 0,
     createdAt: serverTimestamp(),
   });
+  createActivity({
+    actorId: data.postedBy,
+    actorName: data.postedByName,
+    actorPhoto: data.postedByPhoto ?? '',
+    type: 'job_posted',
+    payload: { jobId: ref.id, jobTitle: data.title },
+  }).catch(() => {});  // feed write is best-effort; never block posting
   return ref.id;
 }
 
@@ -137,6 +144,10 @@ export async function saveGigProfile(uid: string, data: Omit<GigProfile, 'uid' |
     await setDoc(doc(db, 'profiles', uid), {
       portfolioUrls: [], ...data, uid, type: 'gig', rating: 0, reviewCount: 0, createdAt: serverTimestamp(),
     });
+    createActivity({
+      actorId: uid, actorName: data.name, actorPhoto: data.photoURL ?? '',
+      type: 'joined', payload: { role: data.category },
+    }).catch(() => {});
   }
 }
 
@@ -148,6 +159,10 @@ export async function saveProfessionalProfile(uid: string, data: Omit<Profession
     await setDoc(doc(db, 'profiles', uid), {
       ...data, uid, type: 'professional', rating: 0, reviewCount: 0, createdAt: serverTimestamp(),
     });
+    createActivity({
+      actorId: uid, actorName: data.name, actorPhoto: data.photoURL ?? '',
+      type: 'joined', payload: { role: data.title },
+    }).catch(() => {});
   }
 }
 
