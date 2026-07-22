@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { getProfile, getMyApplications, setJobStatus, deleteJob } from '@/lib/firestore';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import type { JobListing, GigProfile, ProfessionalProfile, Application, ApplicationStatus } from '@jobman/shared/src/types';
 
 const APP_STATUS_STYLES: Record<ApplicationStatus, string> = {
@@ -45,6 +45,30 @@ export default function DashboardPage() {
     if (!window.confirm(`Delete "${job.title}"? This cannot be undone.`)) return;
     await deleteJob(job.id);
     setMyJobs(jobs => jobs.filter(j => j.id !== job.id));
+  }
+
+  const [boostError, setBoostError] = useState('');
+
+  function isBoostActive(job: JobListing) {
+    const until = job.boostedUntil as unknown as Timestamp | undefined;
+    return job.boosted && until && until.toMillis() > Date.now();
+  }
+
+  async function handleBoostJob(job: JobListing) {
+    setBoostError('');
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jobId: job.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (err: any) {
+      setBoostError(err.message);
+    }
   }
 
   if (authLoading || loading) return (
@@ -114,6 +138,7 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-slate-900">My Job Postings</h2>
               <Link href="/jobs/post" className="btn-primary text-sm">+ Post New</Link>
             </div>
+            {boostError && <p className="text-sm text-red-500 mb-3">{boostError}</p>}
             <div className="space-y-3">
               {myJobs.map(job => (
                 <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50">
@@ -127,6 +152,14 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {isBoostActive(job) ? (
+                      <span className="badge text-xs bg-acid-300 text-ink border border-ink">⚡ Featured</span>
+                    ) : job.status === 'open' && (
+                      <button type="button" onClick={() => handleBoostJob(job)}
+                        className="text-xs font-bold text-accent-600 hover:text-accent-500">
+                        ⚡ Boost $5
+                      </button>
+                    )}
                     <span className={`badge text-xs ${job.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                       {job.status}
                     </span>

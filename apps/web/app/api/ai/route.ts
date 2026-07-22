@@ -2,25 +2,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import { verifyFirebaseToken } from '@/lib/verify-token';
+import { makeRateLimiter } from '@/lib/rate-limit';
 
 export const maxDuration = 30;
 
 const MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5';
 
-// Per-uid sliding window. In-memory: on serverless this is per-instance and
-// resets on cold start, so it's abuse mitigation rather than a hard quota.
-const RATE_LIMIT = 20;
-const RATE_WINDOW_MS = 60_000;
-const requestLog = new Map<string, number[]>();
-
-function checkRateLimit(uid: string): boolean {
-  const now = Date.now();
-  const recent = (requestLog.get(uid) ?? []).filter(t => now - t < RATE_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT) return false;
-  recent.push(now);
-  requestLog.set(uid, recent);
-  return true;
-}
+const checkRateLimit = makeRateLimiter(20, 60_000);
 
 const CATEGORY_IDS = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES]
   .map(c => `${c.id} (${c.label})`).join(', ');
