@@ -7,6 +7,7 @@ import { saveProfessionalProfile, uploadProfilePhoto, getProfile } from '@/lib/f
 import { PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import type { Education, Experience } from '@jobman/shared/src/types';
 import { generateBio } from '@/lib/ai';
+import { importFromLinkedIn, isLinkedInConfigured } from '@/lib/linkedin';
 
 export default function CreateProProfilePage() {
   const { user } = useAuth();
@@ -22,6 +23,8 @@ export default function CreateProProfilePage() {
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [linkedInPhoto, setLinkedInPhoto] = useState('');
+  const [importing, setImporting] = useState(false);
   const [education, setEducation] = useState<Education[]>([
     { school: '', degree: '', field: '', from: '', to: String(new Date().getFullYear()) },
   ]);
@@ -90,6 +93,23 @@ export default function CreateProProfilePage() {
     setPhotoPreview(URL.createObjectURL(file));
   }
 
+  async function handleLinkedInImport() {
+    setImporting(true);
+    setError('');
+    try {
+      const li = await importFromLinkedIn();
+      if (li.picture) {
+        setLinkedInPhoto(li.picture);
+        setPhotoFile(null);
+        setPhotoPreview(li.picture);
+      }
+    } catch (err: any) {
+      setError(err.message ?? 'LinkedIn import failed.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function addEducation() {
     setEducation(ed => [...ed, { school: '', degree: '', field: '', from: '', to: String(new Date().getFullYear()) }]);
   }
@@ -126,7 +146,7 @@ export default function CreateProProfilePage() {
     setSaving(true);
     setError('');
     try {
-      let photoURL = user.photoURL ?? '';
+      let photoURL = linkedInPhoto || (user.photoURL ?? '');
       if (photoFile) photoURL = await uploadProfilePhoto(user.uid, photoFile);
 
       const validEducation = education.filter(e => e.degree.trim() && e.school.trim());
@@ -173,10 +193,19 @@ export default function CreateProProfilePage() {
           )}
           <div>
             <p className="text-sm font-medium text-slate-700 mb-1">Profile Photo</p>
-            <label className="btn-secondary text-sm cursor-pointer">
-              Upload Photo
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            </label>
+            <div className="flex flex-wrap gap-2">
+              <label className="btn-secondary text-sm cursor-pointer">
+                Upload Photo
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              </label>
+              {isLinkedInConfigured() && (
+                <button type="button" onClick={handleLinkedInImport} disabled={importing}
+                  className="btn-secondary text-sm !bg-[#0a66c2] !text-white">
+                  {importing ? 'Importing…' : 'in Import from LinkedIn'}
+                </button>
+              )}
+            </div>
+            {linkedInPhoto && <p className="text-xs text-slate-400 mt-1">Photo imported from LinkedIn ✓</p>}
           </div>
         </div>
 
