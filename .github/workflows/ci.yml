@@ -24,5 +24,13 @@ jobs:
 
       - name: Build web app
         run: yarn build:web
-
-      # TODO: add a test suite (none exists yet) and run it here.
+        # The Firebase web config now comes from the environment (not source).
+        # These are throwaway placeholders so static prerendering can initialize
+        # Firebase during the build — real values are set in Vercel, never here.
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder-key
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: demo-jobman.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-jobman
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: demo-jobman.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "0000000000"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "1:0000000000:web:ci"

@@ -3,5 +3,12 @@ node_modules/
 .expo/
 dist/
 .DS_Store
+.env
 .env.local
 .env*.local
+
+# Firebase emulator debug logs
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log
