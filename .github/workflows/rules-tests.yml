@@ -3,13 +3,9 @@ name: Firestore Rules
 on:
   push:
     branches: [main]
+  # Run on every PR — the rules are security-critical, and app-code changes
+  # can depend on their behavior, so we don't gate this on rule files changing.
   pull_request:
-    paths:
-      - 'firestore.rules'
-      - 'storage.rules'
-      - 'firebase.json'
-      - 'firestore-tests/**'
-      - '.github/workflows/rules-tests.yml'
 
 jobs:
   rules:
