@@ -7,6 +7,7 @@
     "mobile": "yarn workspace @jobman/mobile start",
     "typecheck": "yarn workspace @jobman/web typecheck",
     "build:web": "yarn workspace @jobman/web build",
-    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage"
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-jobman \"npm --prefix firestore-tests test\""
   }
 }
