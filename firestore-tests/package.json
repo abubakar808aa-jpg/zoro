@@ -1,0 +1,13 @@
+{
+  "name": "jobman-firestore-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Security-rules tests for firestore.rules, run against the Firebase emulator.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.12.0"
+  }
+}

@@ -2,22 +2,19 @@
 
 > Before running this checklist, deploy the repository versions of `firestore.rules` and `storage.rules` with `firebase deploy --only firestore:rules,storage`. Do not replace them with the legacy example below; the checked-in Firestore rules also protect imported job listings.
 
-## Task 1 — Create Firestore Indexes (~5 min)
+## Task 1 — Deploy Firestore Indexes + Security Rules (~5 min)
 
-Firebase Console → your `jobman` project → **Firestore Database** → **Indexes** tab → **Composite** → **Create index**. Create these 4 (Query scope: Collection):
+Indexes and rules now live in the repo (`firestore.indexes.json`, `firestore.rules`, `storage.rules`) and deploy with one command — no console copy-paste:
 
-| # | Collection ID | Fields (in order) |
-|---|---|---|
-| 1 | `profiles` | `type` Ascending, `rating` Descending |
-| 2 | `profiles` | `type` Ascending, `category` Ascending, `rating` Descending |
-| 3 | `jobs` | `status` Ascending, `createdAt` Descending |
-| 4 | `conversations` | `participants` **Array contains**, `lastMessageAt` Descending |
+```bash
+npm install -g firebase-tools   # once
+firebase login                  # once
+yarn deploy:rules               # deploys rules + indexes + storage rules
+```
 
-Each shows "Building…" for 1–2 minutes, then "Enabled".
+Indexes show "Building…" in the console for 1–2 minutes, then "Enabled".
 
-Shortcut: if a page in the app shows a red console error with a
-`https://console.firebase.google.com/...` link, clicking that link
-pre-fills the exact index — just press Create.
+> The deployed rules are locked down: only job owners can edit/close their jobs, applications are visible only to the applicant and the job poster, and conversation messages only to participants. Do NOT replace them with test-mode rules.
 
 ## Task 2 — Full End-to-End Test (~15 min)
 
@@ -35,8 +32,13 @@ pre-fills the exact index — just press Create.
 9. Send a text + attach a photo (📎)
 
 **Back as the worker:**
-10. Sign out, sign in with email A → Messages → reply (try the ✨ suggestions)
+10. Sign out, sign in with email A → Messages (note the unread dot) → reply (try the ✨ suggestions)
 11. Jobs tab → open the employer's job → **✨ Write with AI** cover letter → Apply
+12. Dashboard → check **My Applications** shows the application as *pending*
+
+**Back as the employer:**
+13. Dashboard → My Job Postings → click **👥 1 applicant** → read the cover letter → **✓ Accept**
+14. Try **Close** on the job → confirm it disappears from the public Jobs list
 
 If every step works, your marketplace is fully functional.
 
@@ -58,14 +60,10 @@ If every step works, your marketplace is fully functional.
 ## Task 4 — Deploy the Website (Vercel, free)
 
 1. Create accounts: github.com and vercel.com (sign in to Vercel *with* GitHub)
-2. Push the code:
-   ```bash
-   yarn validate
-   ```
-   (`.env.local` is gitignored — your API key will NOT be uploaded)
+2. Push the code (`.env.local` is gitignored — your keys will NOT be uploaded). Optionally run `yarn validate` first (typecheck + build).
 3. Vercel → **Add New… → Project** → Import `jobman`
-4. Set **Root Directory** to `apps/web`
-5. **Environment Variables**: add `ANTHROPIC_API_KEY` if using AI features. Add `FIREBASE_SERVICE_ACCOUNT_KEY` and `INGESTION_SECRET` before enabling job-board ingestion.
+4. Set **Root Directory** to `apps/web` (leave "Include source files outside of the Root Directory" enabled — the app imports from `packages/shared`)
+5. **Environment Variables**: add the required `NEXT_PUBLIC_FIREBASE_*` values (from `apps/web/.env.example`), plus `ANTHROPIC_API_KEY` for AI features. Add `FIREBASE_SERVICE_ACCOUNT_KEY` (needed for boosts, admin actions, and ingestion) and `INGESTION_SECRET` before enabling job-board ingestion.
 6. Deploy → you get `jobman-xyz.vercel.app`
 7. **IMPORTANT:** Firebase Console → Authentication → Settings →
    **Authorized domains** → Add your vercel.app domain (sign-in breaks without this)
@@ -74,67 +72,58 @@ If every step works, your marketplace is fully functional.
 Vercel project → Settings → Domains → Add → follow the DNS instructions →
 also add the domain to Firebase Authorized domains.
 
-## Task 5 — Security Rules (BEFORE real users)
+## Task 5 — CI (already set up)
 
-Deploy the version-controlled rules instead of copying a separate snippet:
+`.github/workflows/ci.yml` runs typecheck + web build on every push and PR.
+Nothing to do — just keep it green. When you add a test framework, wire it
+into the same workflow.
 
-```bash
-firebase deploy --only firestore:rules,storage
-```
+## Notes on the AI features
 
-The current files are `firestore.rules` and `storage.rules`. They protect imported jobs from browser writes while allowing the server-side connector to write through Firebase Admin.
+- `/api/ai` requires a signed-in user (Firebase ID token) and rate-limits each
+  user to 20 AI calls/minute — your Anthropic key can't be drained by
+  anonymous traffic.
+- Model is configurable via the `AI_MODEL` env var (default `claude-haiku-4-5`).
+- New AI features: **Vibe Check** (job-fit score on job pages), **Skill Gaps**
+  (after applying), and **Salary Intel** ("Is this pay fair?"). No extra setup —
+  they use the same route and key.
 
-### Legacy console reference
+## Task 6 — Enable payments (boosted listings)
 
-The snippet below is retained only as an explanatory reference. Do not paste it over the repository rules.
+1. Create a Stripe account → https://dashboard.stripe.com/apikeys → copy the
+   **Secret key** into `STRIPE_SECRET_KEY` (start with test mode).
+2. Dashboard → Developers → **Webhooks** → Add endpoint:
+   `https://<your-domain>/api/stripe/webhook`, event `checkout.session.completed`.
+   Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+3. Firebase Console → Project Settings → **Service accounts** → Generate new
+   private key → paste the JSON (one line) into `FIREBASE_SERVICE_ACCOUNT_KEY`.
+   (The webhook needs it to mark jobs as boosted.)
+4. Test with card `4242 4242 4242 4242` — the job should show **⚡ Featured**
+   and jump to the top of the Jobs page for 7 days. You keep 100% of the $5.
 
-Firebase Console → Firestore Database → **Rules** tab → replace with:
+## Task 7 — Make yourself admin
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /profiles/{uid} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /jobs/{id} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.postedBy;
-    }
-    match /applications/{id} {
-      allow read, create: if request.auth != null;
-    }
-    match /conversations/{id} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null
-        && request.auth.uid in resource.data.participants;
-      match /messages/{msgId} {
-        allow read, create: if request.auth != null;
-      }
-    }
-  }
-}
-```
+1. Firebase Console → Firestore → `users` → your user doc → add field
+   `isAdmin` (boolean) = `true`.
+2. Reload the app → avatar menu now shows **🛡️ Admin** → moderation dashboard
+   (ban users, remove jobs, handle reports).
+   Only ever set this field from the console — the security rules prevent
+   anyone from granting it to themselves.
 
-Then **Storage → Rules** → replace with:
+## Task 8 — LinkedIn import (optional)
 
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-  }
-}
-```
+1. https://linkedin.com/developers → Create app → add the product
+   **"Sign In with LinkedIn using OpenID Connect"**.
+2. Auth tab → add redirect URL: `https://<your-domain>/api/linkedin/callback`
+   (and `http://localhost:3000/api/linkedin/callback` for dev).
+3. Set `NEXT_PUBLIC_LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET`.
+   The "Import from LinkedIn" button appears automatically on profile pages.
 
-Click **Publish** on both.
+## New since v1
+
+- **Daily themes**: the app's colors rotate through 7 palettes (one per
+  weekday) automatically. Nothing to configure.
+- **Feed + follows**: users follow each other from profiles; `/feed` shows
+  job posts, hires, new joins, and career tips from people they follow.
+- **Report flag** on feed posts feeds the admin Reports queue.
+- Remember to run `yarn deploy:rules` again — rules and indexes changed.

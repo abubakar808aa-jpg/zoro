@@ -5,8 +5,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @layer base {
+  /* Default theme (Sunday / Grape Soda) — overridden per-day by lib/theme.ts */
+  :root {
+    --p-50: 250 245 255;
+    --p-100: 243 232 255;
+    --p-200: 233 213 255;
+    --p-500: 168 85 247;
+    --p-600: 147 51 234;
+    --p-700: 126 34 206;
+    --p-900: 88 28 135;
+    --a-400: 244 114 182;
+    --a-500: 236 72 153;
+    --a-600: 219 39 119;
+    --c-bg: 250 247 255;
+  }
   body {
-    @apply bg-[#fcfbff] text-slate-900 font-sans;
+    @apply text-slate-900 font-sans;
+    background-color: rgb(var(--c-bg));
   }
   h1, h2, h3 {
     @apply font-display;

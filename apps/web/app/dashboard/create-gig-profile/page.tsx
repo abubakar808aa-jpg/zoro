@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { saveGigProfile, uploadProfilePhoto } from '@/lib/firestore';
+import { saveGigProfile, uploadProfilePhoto, getProfile } from '@/lib/firestore';
 import { GIG_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import { generateBio } from '@/lib/ai';
+import { importFromLinkedIn, isLinkedInConfigured } from '@/lib/linkedin';
 
 export default function CreateGigProfilePage() {
   const { user } = useAuth();
@@ -21,9 +22,30 @@ export default function CreateGigProfilePage() {
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [linkedInPhoto, setLinkedInPhoto] = useState('');
+  const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiWriting, setAiWriting] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  // Prefill when an existing gig profile is being edited
+  useEffect(() => {
+    if (!user) return;
+    getProfile(user.uid).then(p => {
+      if (!p || p.type !== 'gig') return;
+      setEditing(true);
+      setForm({
+        category: p.category ?? '',
+        bio: p.bio ?? '',
+        skills: (p.skills ?? []).join(', '),
+        hourlyRate: p.hourlyRate ? String(p.hourlyRate) : '',
+        location: p.location ?? '',
+        availability: (p.availability as any) || 'full-time',
+      });
+      if (p.photoURL) setPhotoPreview(p.photoURL);
+    }).catch(() => {});
+  }, [user]);
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
@@ -62,6 +84,23 @@ export default function CreateGigProfilePage() {
     setPhotoPreview(URL.createObjectURL(file));
   }
 
+  async function handleLinkedInImport() {
+    setImporting(true);
+    setError('');
+    try {
+      const li = await importFromLinkedIn();
+      if (li.picture) {
+        setLinkedInPhoto(li.picture);
+        setPhotoFile(null);
+        setPhotoPreview(li.picture);
+      }
+    } catch (err: any) {
+      setError(err.message ?? 'LinkedIn import failed.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -73,7 +112,7 @@ export default function CreateGigProfilePage() {
     setSaving(true);
     setError('');
     try {
-      let photoURL = user.photoURL ?? '';
+      let photoURL = linkedInPhoto || (user.photoURL ?? '');
       if (photoFile) photoURL = await uploadProfilePhoto(user.uid, photoFile);
 
       await saveGigProfile(user.uid, {
@@ -99,7 +138,7 @@ export default function CreateGigProfilePage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Create Gig Worker Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{editing ? 'Edit' : 'Create'} Gig Worker Profile</h1>
         <p className="text-slate-500 mt-1">Let employers find you based on your skills.</p>
       </div>
 
@@ -115,10 +154,19 @@ export default function CreateGigProfilePage() {
           )}
           <div>
             <p className="text-sm font-medium text-slate-700 mb-1">Profile Photo</p>
-            <label className="btn-secondary text-sm cursor-pointer">
-              Upload Photo
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            </label>
+            <div className="flex flex-wrap gap-2">
+              <label className="btn-secondary text-sm cursor-pointer">
+                Upload Photo
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              </label>
+              {isLinkedInConfigured() && (
+                <button type="button" onClick={handleLinkedInImport} disabled={importing}
+                  className="btn-secondary text-sm !bg-[#0a66c2] !text-white">
+                  {importing ? 'Importing…' : 'in Import from LinkedIn'}
+                </button>
+              )}
+            </div>
+            {linkedInPhoto && <p className="text-xs text-slate-400 mt-1">Photo imported from LinkedIn ✓</p>}
           </div>
         </div>
 
@@ -214,7 +262,7 @@ export default function CreateGigProfilePage() {
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={() => router.back()} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary flex-1">
-            {saving ? 'Saving…' : 'Create Profile'}
+            {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Profile'}
           </button>
         </div>
       </form>

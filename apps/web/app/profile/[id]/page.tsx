@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { getProfile } from '@/lib/firestore';
-import { getOrCreateConversation } from '@/lib/firestore';
+import { getProfile, getOrCreateConversation, followUser, unfollowUser, isFollowing, getFollowerCount } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,10 +16,41 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     getProfile(id).then(setProfile).finally(() => setLoading(false));
+    getFollowerCount(id).then(setFollowerCount).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    if (user && user.uid !== id) {
+      isFollowing(user.uid, id).then(setFollowing).catch(() => {});
+    }
+  }, [user, id]);
+
+  async function handleFollowToggle() {
+    if (!user) { router.push('/sign-in'); return; }
+    if (!profile || followBusy) return;
+    setFollowBusy(true);
+    const next = !following;
+    setFollowing(next);
+    setFollowerCount(c => c + (next ? 1 : -1));
+    try {
+      if (next) {
+        await followUser(user.uid, { uid: id, name: profile.name, photoURL: profile.photoURL });
+      } else {
+        await unfollowUser(user.uid, id);
+      }
+    } catch {
+      setFollowing(!next);
+      setFollowerCount(c => c + (next ? -1 : 1));
+    } finally {
+      setFollowBusy(false);
+    }
+  }
 
   async function handleMessage() {
     if (!user) { router.push('/sign-in'); return; }
@@ -64,6 +94,7 @@ export default function ProfilePage() {
                   {isGig ? gig.category : pro.title}
                 </p>
                 <p className="text-slate-500 text-sm">{profile.location}</p>
+                <p className="text-xs text-slate-400 mt-1">👥 {followerCount} follower{followerCount !== 1 ? 's' : ''}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 {isGig ? (
@@ -77,9 +108,14 @@ export default function ProfilePage() {
               </div>
             </div>
             {user && user.uid !== id && (
-              <button onClick={handleMessage} disabled={messaging} className="btn-primary mt-4 text-sm">
-                {messaging ? 'Opening chat…' : '💬 Send Message'}
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleMessage} disabled={messaging} className="btn-primary text-sm">
+                  {messaging ? 'Opening chat…' : '💬 Send Message'}
+                </button>
+                <button onClick={handleFollowToggle} disabled={followBusy} className="btn-secondary text-sm">
+                  {following ? '✓ Following' : '➕ Follow'}
+                </button>
+              </div>
             )}
           </div>
         </div>

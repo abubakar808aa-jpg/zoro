@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { themeInitScript } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'JobMan – Find Jobs & Hire Talent in the USA',
@@ -12,6 +13,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Applies today's theme vars before first paint — must run pre-hydration */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript() }} />
+      </head>
       <body>
         <AuthProvider>
           <Navbar />

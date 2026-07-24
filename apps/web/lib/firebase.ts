@@ -4,6 +4,8 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { firebaseConfig } from '@jobman/shared/src/firebase/config';
 
+// firebaseConfig reads NEXT_PUBLIC_FIREBASE_* from the environment
+// (see packages/shared/src/firebase/config.ts and apps/web/.env.example).
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);

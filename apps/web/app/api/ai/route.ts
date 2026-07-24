@@ -1,10 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
+import { verifyFirebaseToken } from '@/lib/verify-token';
+import { makeRateLimiter } from '@/lib/rate-limit';
 
 export const maxDuration = 30;
 
 const MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5';
+
+const checkRateLimit = makeRateLimiter(20, 60_000);
 
 const CATEGORY_IDS = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES]
   .map(c => `${c.id} (${c.label})`).join(', ');
@@ -95,6 +99,48 @@ Return ONLY JSON:
   "maxHourly": number or null (if they mention a max hourly rate)
 }`;
 
+    case 'vibe-check':
+      return `You are "Vibe Check" on JobMan, a US job marketplace popular with Gen-Z. Score how well this job fits this candidate, honestly but with playful Gen-Z energy (no cringe, no slang overload).
+Job title: ${p.jobTitle}
+Job description: ${p.jobDescription}
+${p.requirements?.length ? `Requirements: ${p.requirements.join('; ')}` : ''}
+${p.salary ? `Pay: ${p.salary}` : ''}
+Candidate profile: ${p.candidateSummary || 'No profile provided — score the job on its own merits (clarity, pay transparency, flexibility).'}
+Return ONLY JSON:
+{
+  "score": integer 1-10,
+  "pros": ["2-4 short reasons this could be a great fit"],
+  "cons": ["1-3 short honest concerns or gaps"],
+  "verdict": "one punchy sentence, max 15 words"
+}`;
+
+    case 'skill-gaps':
+      return `You are a career coach on JobMan, a US job marketplace. Compare the candidate's skills with the job's requirements and identify what they're missing, plus how to close each gap fast and cheap.
+Job title: ${p.jobTitle}
+Requirements: ${(p.requirements ?? []).join('; ')}
+Job skills wanted: ${(p.jobSkills ?? []).join(', ')}
+Candidate skills: ${(p.candidateSkills ?? []).join(', ') || 'unknown'}
+Return ONLY JSON:
+{
+  "matched": ["skills the candidate already has that this job wants"],
+  "gaps": ["skills the job wants that the candidate lacks — max 4"],
+  "resources": [{ "skill": "gap skill", "how": "one concrete, mostly-free way to learn it fast (e.g. a known course platform, certification, or practice project)" }],
+  "note": "one encouraging sentence, max 20 words"
+}`;
+
+    case 'salary-intel':
+      return `You are a salary transparency tool on JobMan, a US job marketplace. Judge whether this pay is fair for the US market in 2026.
+Job title: ${p.jobTitle}
+Location: ${p.location || 'US'}${p.remote ? ' (remote)' : ''}
+Offered pay: ${p.salary}
+Job type: ${p.type}
+Return ONLY JSON:
+{
+  "fairness": "below" | "fair" | "above",
+  "marketRange": "typical US range as a short string, e.g. '$25–35/hr' or '$70k–95k'",
+  "note": "one plain-English sentence explaining the judgement, max 25 words"
+}`;
+
     default:
       throw new Error(`Unknown task: ${task}`);
   }
@@ -107,6 +153,16 @@ export async function POST(req: Request) {
       { error: 'AI is not configured. Add ANTHROPIC_API_KEY to apps/web/.env.local and restart the dev server.' },
       { status: 503 }
     );
+  }
+
+  let uid: string;
+  try {
+    uid = await verifyFirebaseToken(req.headers.get('authorization'));
+  } catch {
+    return NextResponse.json({ error: 'Sign in to use AI features.' }, { status: 401 });
+  }
+  if (!checkRateLimit(uid)) {
+    return NextResponse.json({ error: 'Too many AI requests — try again in a minute.' }, { status: 429 });
   }
 
   try {

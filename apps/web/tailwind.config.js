@@ -4,21 +4,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Electric purple — main brand color
+        // Themable brand colors — resolve to CSS vars set per-day by lib/theme.ts.
+        // Defaults (electric purple / hot pink) live in globals.css :root.
         primary: {
-          50:  '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7e22ce',
-          900: '#581c87',
+          50:  'rgb(var(--p-50) / <alpha-value>)',
+          100: 'rgb(var(--p-100) / <alpha-value>)',
+          200: 'rgb(var(--p-200) / <alpha-value>)',
+          500: 'rgb(var(--p-500) / <alpha-value>)',
+          600: 'rgb(var(--p-600) / <alpha-value>)',
+          700: 'rgb(var(--p-700) / <alpha-value>)',
+          900: 'rgb(var(--p-900) / <alpha-value>)',
         },
-        // Hot pink — call-to-action pop
         accent: {
-          400: '#f472b6',
-          500: '#ec4899',
-          600: '#db2777',
+          400: 'rgb(var(--a-400) / <alpha-value>)',
+          500: 'rgb(var(--a-500) / <alpha-value>)',
+          600: 'rgb(var(--a-600) / <alpha-value>)',
         },
         // Acid lime — highlights, stickers, hover states
         acid: {

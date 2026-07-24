@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import JobCard from '@/components/JobCard';
-import { getJobs, getProfile } from '@/lib/firestore';
+import { getJobs, getBoostedJobs, getProfile } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
 import { parseJobSearch, type ParsedSearch } from '@/lib/ai';
 import { scoreJobMatch } from '@jobman/shared/src/utils/matching';
@@ -20,17 +20,30 @@ const TYPES = [
 export default function JobsPage() {
   const { user, accountType } = useAuth();
   const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [lastDoc, setLastDoc] = useState<Awaited<ReturnType<typeof getJobs>>['lastDoc']>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [aiFilters, setAiFilters] = useState<ParsedSearch | null>(null);
   const [aiSearching, setAiSearching] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
+
+  const [boostedJobs, setBoostedJobs] = useState<JobListing[]>([]);
 
   useEffect(() => {
     setLoading(true);
-    getJobs(typeFilter ? { type: typeFilter } : undefined)
-      .then(setJobs)
+    Promise.all([
+      getJobs(typeFilter ? { type: typeFilter } : undefined),
+      getBoostedJobs().catch(() => [] as JobListing[]),
+    ])
+      .then(([{ jobs, lastDoc }, boosted]) => {
+        const pinned = typeFilter ? boosted.filter(b => b.type === typeFilter) : boosted;
+        setBoostedJobs(pinned);
+        setJobs(jobs.filter(j => !pinned.some(b => b.id === j.id)));
+        setLastDoc(lastDoc);
+      })
       .finally(() => setLoading(false));
   }, [typeFilter]);
 
@@ -44,15 +57,29 @@ export default function JobsPage() {
     else setProfile(null);
   }, [user]);
 
+  async function loadMore() {
+    if (!lastDoc) return;
+    setLoadingMore(true);
+    try {
+      const { jobs: more, lastDoc: next } = await getJobs(typeFilter ? { type: typeFilter } : undefined, lastDoc);
+      setJobs(prev => [...prev, ...more]);
+      setLastDoc(next);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   async function handleAISearch() {
     if (!search.trim()) return;
     setAiSearching(true);
+    setAiError('');
     try {
       const result = await parseJobSearch(search);
       setAiFilters(result);
       if (result.type) setTypeFilter(result.type);
-    } catch {
+    } catch (err: any) {
       setAiFilters(null);
+      setAiError(err.message ?? 'AI search failed');
     } finally {
       setAiSearching(false);
     }
@@ -101,7 +128,7 @@ export default function JobsPage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Job Listings</h1>
-          <p className="text-slate-500 mt-1">{jobs.length} open positions</p>
+          <p className="text-slate-500 mt-1">Showing {jobs.length} open position{jobs.length !== 1 ? 's' : ''}</p>
           {profile && <p className="text-xs text-violet-600 mt-1">✨ Sorted by best match for your profile</p>}
         </div>
         {user && accountType === 'employer' && (
@@ -123,6 +150,10 @@ export default function JobsPage() {
           {aiSearching ? '✨ Searching…' : '✨ AI Search'}
         </button>
       </div>
+
+      {aiError && (
+        <p className="text-sm text-red-500 mb-4">{aiError}</p>
+      )}
 
       {aiFilters && (
         <div className="flex items-center gap-2 flex-wrap mb-5">
@@ -157,9 +188,19 @@ export default function JobsPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {filtered.map(j => <JobCard key={j.id} job={j} />)}
-        </div>
+        <>
+          <div className="space-y-4">
+            {!aiFilters && !search && boostedJobs.map(j => <JobCard key={j.id} job={j} featured />)}
+            {filtered.map(j => <JobCard key={j.id} job={j} />)}
+          </div>
+          {lastDoc && !aiFilters && !search && (
+            <div className="text-center mt-8">
+              <button type="button" onClick={loadMore} disabled={loadingMore} className="btn-secondary">
+                {loadingMore ? 'Loading…' : 'Load More Jobs'}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

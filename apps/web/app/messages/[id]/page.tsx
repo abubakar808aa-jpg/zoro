@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { subscribeToMessages, sendMessage } from '@/lib/firestore';
+import { subscribeToMessages, sendMessage, markConversationRead } from '@/lib/firestore';
 import { suggestReplies } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
 import { doc, getDoc } from 'firebase/firestore';
@@ -30,7 +30,15 @@ export default function ConversationPage() {
     getDoc(doc(db, 'conversations', id)).then(snap => {
       if (snap.exists()) setConv({ id: snap.id, ...snap.data() } as Conversation);
     });
-    return subscribeToMessages(id, setMessages);
+    markConversationRead(id, user.uid).catch(() => {});
+    return subscribeToMessages(id, msgs => {
+      setMessages(msgs);
+      // Keep the conversation marked read while it's open
+      const latest = msgs[msgs.length - 1];
+      if (latest && latest.senderId !== user.uid) {
+        markConversationRead(id, user.uid).catch(() => {});
+      }
+    });
   }, [id, user]);
 
   useEffect(() => {
@@ -82,7 +90,6 @@ export default function ConversationPage() {
         )}
         <div>
           <p className="font-semibold text-slate-900 text-sm">{otherName}</p>
-          <p className="text-xs text-green-500">Online</p>
         </div>
       </div>
 

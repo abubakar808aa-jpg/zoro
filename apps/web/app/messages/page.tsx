@@ -39,7 +39,10 @@ export default function MessagesPage() {
             const otherId = conv.participants.find(p => p !== user.uid) ?? '';
             const otherName = conv.participantNames?.[otherId] ?? 'Unknown';
             const otherPhoto = conv.participantPhotos?.[otherId];
-            const isUnread = conv.lastSenderId !== user.uid;
+            const lastReadAt = (conv.lastRead as any)?.[user.uid];
+            const isUnread = !!conv.lastMessage
+              && conv.lastSenderId !== user.uid
+              && (!lastReadAt || ((conv.lastMessageAt as any)?.seconds ?? 0) > (lastReadAt.seconds ?? 0));
             const timeAgo = conv.lastMessageAt
               ? formatDistanceToNow(new Date((conv.lastMessageAt as any).seconds * 1000), { addSuffix: true })
               : '';

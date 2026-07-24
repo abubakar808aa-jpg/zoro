@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import type { JobListing } from '@jobman/shared/src/types';
+import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
-export default function JobCard({ job }: { job: JobListing }) {
+export default function JobCard({ job, featured = false }: { job: JobListing; featured?: boolean }) {
   const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
 
   const typeConfig: Record<string, { color: string; label: string; bar: string }> = {
@@ -17,9 +17,14 @@ export default function JobCard({ job }: { job: JobListing }) {
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
 
   return (
-    <Link href={`/jobs/${job.id}`} className="block bg-white rounded-3xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-y-1 transition-all overflow-hidden group">
-      {/* Accent bar */}
-      <div className={`h-2 w-full bg-gradient-to-r ${cfg.bar} border-b-2 border-ink`} />
+    <Link href={`/jobs/${job.id}`} className={`block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`}>
+      {featured ? (
+        <div className="h-7 w-full bg-acid-300 border-b-2 border-ink flex items-center px-4">
+          <span className="text-xs font-display font-bold text-ink tracking-wide">⚡ FEATURED</span>
+        </div>
+      ) : (
+        <div className={`h-2 w-full bg-gradient-to-r ${cfg.bar} border-b-2 border-ink`} />
+      )}
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
@@ -42,9 +47,17 @@ export default function JobCard({ job }: { job: JobListing }) {
 
         <p className="text-sm text-slate-500 mt-3 line-clamp-2 leading-relaxed">{job.description}</p>
 
-        {job.skills?.length > 0 && (
+        {((job.genZTags?.length ?? 0) > 0 || job.skills?.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
-            {job.skills.slice(0, 5).map(s => (
+            {job.genZTags?.map(tag => {
+              const t = GEN_Z_TAGS.find(g => g.id === tag);
+              return t ? (
+                <span key={tag} className="badge bg-primary-100 text-primary-700 text-xs border border-primary-200">
+                  {t.emoji} {t.label}
+                </span>
+              ) : null;
+            })}
+            {job.skills?.slice(0, 5).map(s => (
               <span key={s} className="badge bg-slate-100 text-slate-600 text-xs">{s}</span>
             ))}
           </div>

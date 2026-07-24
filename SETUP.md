@@ -47,20 +47,46 @@ Follow these steps once to connect JobMan to Firebase.
 
 ---
 
-## Step 6 — Paste Config into the Project
+## Step 6 — Put Config in Environment Files (not source)
 
-Open `packages/shared/src/firebase/config.ts` and replace the placeholder values:
+Config lives in `.env` files, **not** in the code. Each file is gitignored, so
+your keys never get committed. Copy the two examples and fill in the values from
+the `firebaseConfig` object you just copied:
 
-```typescript
-export const firebaseConfig = {
-  apiKey: "PASTE_HERE",
-  authDomain: "PASTE_HERE",
-  projectId: "PASTE_HERE",
-  storageBucket: "PASTE_HERE",
-  messagingSenderId: "PASTE_HERE",
-  appId: "PASTE_HERE",
-};
+```bash
+cp apps/web/.env.example apps/web/.env.local      # website (Next.js)
+cp apps/mobile/.env.example apps/mobile/.env       # mobile (Expo)
 ```
+
+**Website** — `apps/web/.env.local`:
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY=AIza…
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=1234567890
+NEXT_PUBLIC_FIREBASE_APP_ID=1:1234567890:web:abc123
+```
+
+**Mobile** — `apps/mobile/.env` (same values, `EXPO_PUBLIC_` prefix):
+
+```bash
+EXPO_PUBLIC_FIREBASE_API_KEY=AIza…
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=1234567890
+EXPO_PUBLIC_FIREBASE_APP_ID=1:1234567890:web:abc123
+```
+
+> The web apiKey is a **public** project identifier, not a secret — it's safe in
+> the browser bundle, and access is controlled by the Firestore/Storage security
+> rules. It lives in `.env` so each environment (local, Vercel, CI) supplies its
+> own project, not because it needs hiding.
+
+On **Vercel**, set the same `NEXT_PUBLIC_FIREBASE_*` variables under
+**Project Settings → Environment Variables** instead of a `.env.local` file.
 
 ---
 
@@ -70,27 +96,31 @@ export const firebaseConfig = {
 2. Select your Firebase project
 3. Navigate to **APIs & Services** → **Credentials**
 4. Find the **OAuth 2.0 Client ID** for type **Web application**
-5. Copy the Client ID
+5. Copy the Client ID into `apps/mobile/.env`:
 
-Open `packages/shared/src/firebase/config.ts` and paste it:
-
-```typescript
-export const GOOGLE_WEB_CLIENT_ID = "PASTE_YOUR_CLIENT_ID_HERE";
+```bash
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
 ```
+
+(Email sign-in works without this — it's only needed for Google sign-in.)
 
 ---
 
-## Step 8 — Firestore Indexes
+## Step 8 — Deploy Security Rules & Indexes
 
-Run these composite index creations in the Firebase console
-(**Firestore → Indexes → Composite → Add**):
+Rules and composite indexes live in the repo (`firestore.rules`,
+`firestore.indexes.json`, `storage.rules`) — deploy them with one command
+instead of clicking around the console:
 
-| Collection | Fields | Order |
-|---|---|---|
-| `profiles` | `type` ASC, `rating` DESC | |
-| `profiles` | `type` ASC, `category` ASC, `rating` DESC | |
-| `jobs` | `status` ASC, `createdAt` DESC | |
-| `conversations` | `participants` ARRAY, `lastMessageAt` DESC | |
+```bash
+npm install -g firebase-tools   # once
+firebase login                  # once
+yarn deploy:rules               # rules + indexes + storage rules
+```
+
+> The rules are locked down (see `firestore.rules`). Do **not** start Firestore
+> in test mode for production. You can verify the rules locally with
+> `yarn test:rules`, which runs them against the Firebase emulator.
 
 ---
 
