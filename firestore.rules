@@ -19,7 +19,8 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny(['isImported']);
       allow update: if request.auth != null
         && request.auth.uid == resource.data.postedBy
-        && request.resource.data.postedBy == resource.data.postedBy;
+        && request.resource.data.postedBy == resource.data.postedBy
+        && !request.resource.data.keys().hasAny(['isImported']);
       allow delete: if request.auth != null && request.auth.uid == resource.data.postedBy;
     }
     match /jobSources/{id} {

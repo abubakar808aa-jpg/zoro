@@ -1,5 +1,7 @@
 # JobMan — Firebase Setup Guide
 
+> The repository is a Yarn workspace. Run commands from the repository root with `yarn`, rather than installing dependencies separately inside each app.
+
 Follow these steps once to connect JobMan to Firebase.
 
 ---
@@ -24,7 +26,7 @@ Follow these steps once to connect JobMan to Firebase.
 ## Step 3 — Create Firestore Database
 
 1. Click **Firestore Database** → **Create database**
-2. Choose **Start in test mode** (you can add security rules later)
+2. Choose the production mode option, then deploy the repository's checked-in rules in Step 9.
 3. Pick the region closest to your users (e.g., `us-central`)
 
 ---
@@ -96,19 +98,25 @@ Run these composite index creations in the Firebase console
 
 ### Website
 ```bash
-cd apps/web
-npm install
-npm run dev
+yarn
+yarn web
 # Opens at http://localhost:3000
 ```
 
 ### Mobile (iOS & Android)
 ```bash
-cd apps/mobile
-npm install
-npx expo start
+yarn mobile
 # Scan QR code with Expo Go app on your phone
 ```
+
+### Server-side job ingestion
+
+Copy `apps/web/.env.example` to `apps/web/.env.local`. In addition to the public Firebase web configuration, ingestion needs:
+
+- `FIREBASE_SERVICE_ACCOUNT_KEY`: one-line Firebase service-account JSON.
+- `INGESTION_SECRET`: a long random value used only by server-to-server ingestion calls.
+
+Read [the connector documentation](docs/README.md) for Greenhouse, Lever, Ashby, and SmartRecruiters.
 
 ---
 
