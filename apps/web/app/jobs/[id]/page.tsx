@@ -114,8 +114,15 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      {/* Apply Section */}
-      {accountType !== 'employer' && (
+      {/* Imported roles keep applications with the original employer. */}
+      {job.isImported && job.applyUrl ? (
+        <div className="card text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original employer listing</p>
+          <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.postedByName}</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. Your application stays with the employer — no weird detours.</p>
+          <a href={job.applyUrl} target="_blank" rel="noreferrer" className="btn-primary mt-5 inline-flex">Apply on the employer site ↗</a>
+        </div>
+      ) : accountType !== 'employer' && (
         <div className="card">
           <h2 className="font-bold text-slate-900 text-lg mb-4">Apply for this Job</h2>
           {!user ? (
