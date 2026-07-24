@@ -4,6 +4,9 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "web": "yarn workspace @jobman/web dev",
-    "mobile": "yarn workspace @jobman/mobile start"
+    "mobile": "yarn workspace @jobman/mobile start",
+    "typecheck": "yarn workspace @jobman/web typecheck",
+    "build": "yarn workspace @jobman/web build",
+    "validate": "yarn typecheck && yarn build"
   }
 }

@@ -51,7 +51,7 @@ export default function JobCard({ job }: { job: JobListing }) {
         )}
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
-          <span>👥 {job.applicantCount} applicant{job.applicantCount !== 1 ? 's' : ''}</span>
+          <span>{job.isImported ? `↗ ${job.sourceProvider} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
           <span>{posted}</span>
         </div>
       </div>

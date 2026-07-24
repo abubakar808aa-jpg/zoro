@@ -1,4 +1,6 @@
-# JobMan — Launch Checklist (detailed steps)
+# JobMan — Launch Checklist
+
+> Before running this checklist, deploy the repository versions of `firestore.rules` and `storage.rules` with `firebase deploy --only firestore:rules,storage`. Do not replace them with the legacy example below; the checked-in Firestore rules also protect imported job listings.
 
 ## Task 1 — Create Firestore Indexes (~5 min)
 
@@ -43,8 +45,7 @@ If every step works, your marketplace is fully functional.
 1. On your phone: install **Expo Go** (App Store / Play Store)
 2. In Terminal:
    ```bash
-   cd ~/Desktop/JobMan/apps/mobile
-   npx expo start
+   yarn mobile
    ```
 3. Scan the QR code (iPhone: Camera app; Android: inside Expo Go)
 4. Phone and Mac must be on the same Wi-Fi
@@ -59,16 +60,12 @@ If every step works, your marketplace is fully functional.
 1. Create accounts: github.com and vercel.com (sign in to Vercel *with* GitHub)
 2. Push the code:
    ```bash
-   cd ~/Desktop/JobMan
-   git init && git add . && git commit -m "JobMan v1"
-   # create an empty repo named jobman on github.com, then:
-   git remote add origin https://github.com/YOUR_USERNAME/jobman.git
-   git push -u origin main
+   yarn validate
    ```
    (`.env.local` is gitignored — your API key will NOT be uploaded)
 3. Vercel → **Add New… → Project** → Import `jobman`
 4. Set **Root Directory** to `apps/web`
-5. **Environment Variables**: add `ANTHROPIC_API_KEY` = your key
+5. **Environment Variables**: add `ANTHROPIC_API_KEY` if using AI features. Add `FIREBASE_SERVICE_ACCOUNT_KEY` and `INGESTION_SECRET` before enabling job-board ingestion.
 6. Deploy → you get `jobman-xyz.vercel.app`
 7. **IMPORTANT:** Firebase Console → Authentication → Settings →
    **Authorized domains** → Add your vercel.app domain (sign-in breaks without this)
@@ -77,7 +74,19 @@ If every step works, your marketplace is fully functional.
 Vercel project → Settings → Domains → Add → follow the DNS instructions →
 also add the domain to Firebase Authorized domains.
 
-## Task 5 — Security Rules (BEFORE real users; test mode expires in 30 days)
+## Task 5 — Security Rules (BEFORE real users)
+
+Deploy the version-controlled rules instead of copying a separate snippet:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+The current files are `firestore.rules` and `storage.rules`. They protect imported jobs from browser writes while allowing the server-side connector to write through Firebase Admin.
+
+### Legacy console reference
+
+The snippet below is retained only as an explanatory reference. Do not paste it over the repository rules.
 
 Firebase Console → Firestore Database → **Rules** tab → replace with:
 
