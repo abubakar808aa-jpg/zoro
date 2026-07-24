@@ -23,20 +23,30 @@ service cloud.firestore {
     }
     match /jobs/{id} {
       allow read: if true;
+      // Browser clients may create only their own manually posted jobs, and may
+      // not forge boost or import fields (those are set server-side via the
+      // Admin SDK: boosts by the Stripe webhook, imports by the ingestion route).
       allow create: if request.auth != null
         && request.resource.data.postedBy == request.auth.uid
-        && !request.resource.data.keys().hasAny(['boosted', 'boostedUntil']);
-      // Owner can update anything EXCEPT boost fields (those are set only by
-      // the Stripe webhook via the Admin SDK after payment). Any signed-in
-      // user may ONLY bump applicantCount by exactly 1 — applyToJob does this.
-      allow update: if request.auth != null && (
-        (request.auth.uid == resource.data.postedBy
-          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['boosted', 'boostedUntil']))
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicantCount'])
-            && request.resource.data.applicantCount == resource.data.applicantCount + 1)
-      );
+        && !request.resource.data.keys().hasAny(['boosted', 'boostedUntil', 'isImported']);
+      // Imported jobs are read-only to clients. For a manually posted job the
+      // owner may edit anything except the server-managed fields, OR any signed-in
+      // user may bump applicantCount by exactly 1 (applyToJob does this).
+      allow update: if request.auth != null
+        && !resource.data.keys().hasAny(['isImported'])
+        && (
+          (request.auth.uid == resource.data.postedBy
+            && request.resource.data.postedBy == resource.data.postedBy
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['boosted', 'boostedUntil', 'isImported']))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicantCount'])
+              && request.resource.data.applicantCount == resource.data.applicantCount + 1)
+        );
       allow delete: if request.auth != null && request.auth.uid == resource.data.postedBy;
+    }
+    match /jobSources/{id} {
+      allow read: if true;
+      allow write: if false;
     }
     match /applications/{id} {
       allow create: if request.auth != null

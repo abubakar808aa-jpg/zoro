@@ -2,6 +2,7 @@ export type AccountType = 'worker' | 'employer';
 export type ProfileType = 'gig' | 'professional';
 export type JobType = 'gig' | 'fulltime' | 'parttime' | 'contract';
 export type JobStatus = 'open' | 'closed';
+export type JobSourceProvider = 'manual' | 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters';
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 export type MessageFileType = 'image' | 'document' | 'none';
 
@@ -95,6 +96,27 @@ export interface JobListing {
   boostedUntil?: Date;
   genZTags?: GenZTag[];
   createdAt: Date;
+  // Present only when JobMan indexes a public employer job board. These jobs
+  // always route applicants to the employer's original application page.
+  sourceProvider?: JobSourceProvider;
+  sourceJobId?: string;
+  sourceUrl?: string;
+  applyUrl?: string;
+  sourceUpdatedAt?: Date;
+  lastSeenAt?: Date;
+  isImported?: boolean;
+}
+
+export interface JobSource {
+  id: string;
+  provider: Exclude<JobSourceProvider, 'manual'>;
+  boardToken: string;
+  companyName: string;
+  careersUrl?: string;
+  active: boolean;
+  lastFetchedAt?: Date;
+  lastSuccessAt?: Date;
+  lastError?: string;
 }
 
 export type GenZTag = 'remote-first' | 'flexible' | 'no-degree' | 'side-hustle' | 'mentorship';

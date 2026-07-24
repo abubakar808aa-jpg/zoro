@@ -1,155 +1,204 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES } from '@jobman/shared/src/constants/categories';
 
+const floatingSignals = [
+  { text: 'Product Designer', top: '18%', left: '8%', color: 'bg-acid-300', drift: 0.7 },
+  { text: 'Remote friendly', top: '23%', left: '73%', color: 'bg-white', drift: 1.1 },
+  { text: '$95k–$120k', top: '65%', left: '9%', color: 'bg-accent-400 text-white', drift: 1.3 },
+  { text: 'New today', top: '73%', left: '75%', color: 'bg-primary-500 text-white', drift: 0.8 },
+  { text: 'No cover letter', top: '43%', left: '83%', color: 'bg-acid-300', drift: 1.5 },
+];
+
 export default function LandingPage() {
+  const [query, setQuery] = useState('');
+  const [scrollY, setScrollY] = useState(0);
+  const [pointer, setPointer] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const marqueeItems = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES].map(c => `${c.icon} ${c.label}`);
+  const heroProgress = Math.min(scrollY / 650, 1);
 
   return (
-    <div className="min-h-screen">
+    <div className="overflow-hidden">
+      <section
+        className="hero-shell relative isolate min-h-[790px] overflow-hidden bg-ink px-4 pb-24 pt-24 text-white sm:px-6 lg:min-h-[820px] lg:pt-32"
+        onPointerMove={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setPointer({ x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height });
+        }}
+      >
+        <div className="hero-grid absolute inset-0 opacity-40" />
+        <div className="hero-aurora hero-aurora-one" style={{ transform: `translate(${(pointer.x - 0.5) * 22}px, ${(pointer.y - 0.5) * 22}px)` }} />
+        <div className="hero-aurora hero-aurora-two" style={{ transform: `translate(${(pointer.x - 0.5) * -30}px, ${(pointer.y - 0.5) * -20}px)` }} />
+        <div className="hero-aurora hero-aurora-three" style={{ transform: `translate(${(pointer.x - 0.5) * 18}px, ${(pointer.y - 0.5) * -18}px)` }} />
 
-      {/* Hero */}
-      <section className="relative bg-ink text-white py-28 px-4 overflow-hidden">
-        {/* Neon blobs */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full bg-primary-600 blur-3xl" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-accent-500 blur-3xl" />
-          <div className="absolute top-1/3 right-1/4 w-64 h-64 rounded-full bg-acid-400 blur-3xl opacity-60" />
-        </div>
-        <div className="relative max-w-4xl mx-auto text-center">
-          <div className="sticker bg-acid-300 text-ink mb-8 animate-wiggle">
-            🇺🇸 Built for the United States
+        {floatingSignals.map((signal) => (
+          <div
+            aria-hidden="true"
+            className={`signal-chip absolute hidden rounded-full border border-ink/10 px-4 py-2 text-sm font-bold text-ink shadow-lg md:block ${signal.color}`}
+            key={signal.text}
+            style={{
+              top: signal.top,
+              left: signal.left,
+              transform: `translate(${(pointer.x - 0.5) * signal.drift * 36}px, ${(pointer.y - 0.5) * signal.drift * 28 + heroProgress * 90}px) rotate(${heroProgress * (signal.drift - 1) * 16}deg)`,
+            }}
+          >
+            <span className="mr-2 text-xs">✦</span>{signal.text}
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
-            Find work.<br />Hire talent.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-acid-300 via-accent-400 to-primary-500">Level up. ⚡</span>
+        ))}
+
+        <div className="relative mx-auto flex max-w-5xl flex-col items-center text-center">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold tracking-wide text-white/90 backdrop-blur-md">
+            <span className="inline-flex h-2 w-2 rounded-full bg-acid-300 shadow-[0_0_14px_#bef264]" />
+            JOB SEARCH, WITHOUT THE TAB HOARDING
+          </div>
+          <h1 className="max-w-4xl font-display text-5xl font-bold leading-[0.95] tracking-[-0.055em] sm:text-7xl lg:text-8xl">
+            The job market is scattered.<br />
+            <span className="hero-gradient-text">We&apos;re not.</span>
           </h1>
-          <p className="mt-6 text-xl text-white/70 max-w-2xl mx-auto leading-relaxed">
-            JobMan connects gig workers, professionals, and employers across all 50 states.
-            Need a plumber today or a software engineer for your team? Say less.
+          <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/70 sm:text-xl">
+            Find work worth applying for, discover people worth hiring, and leave the 47-tab career spiral behind. You&apos;re welcome.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-5 justify-center">
-            <Link href="/jobs" className="bg-acid-300 text-ink font-bold px-8 py-4 rounded-2xl text-lg border-2 border-ink shadow-pop-pink transition-all hover:-translate-y-1 hover:shadow-pop-lg">
-              🔍 Find a Job
-            </Link>
-            <Link href="/jobs/post" className="bg-accent-500 text-white font-bold px-8 py-4 rounded-2xl text-lg border-2 border-ink shadow-pop-lime transition-all hover:-translate-y-1 hover:shadow-pop-lg">
-              📋 Post a Job
-            </Link>
-          </div>
-          <p className="mt-6 text-white/40 text-sm">Free to post in v1 · No credit card · No cap 🧢</p>
+
+          <form action="/jobs" method="get" className="hero-search mt-10 flex w-full max-w-3xl flex-col gap-3 rounded-[1.6rem] border border-white/15 bg-white/10 p-3 backdrop-blur-xl sm:flex-row">
+            <label className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-white px-5 py-4 text-left">
+              <span className="text-xl">⌕</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                name="q"
+                className="min-w-0 w-full bg-transparent text-base font-medium text-ink outline-none placeholder:text-slate-400"
+                placeholder="Job title, skill, or company"
+                aria-label="Search jobs"
+              />
+            </label>
+            <button type="submit" className="rounded-2xl bg-acid-300 px-7 py-4 font-bold text-ink transition-transform hover:-translate-y-0.5 active:translate-y-0">
+              Find my next flex <span aria-hidden="true">→</span>
+            </button>
+          </form>
+          <p className="mt-4 text-sm text-white/45">Try “product designer” or “electrician near me” — we don&apos;t judge the plot twists.</p>
+        </div>
+
+        <div className="hero-orbit absolute bottom-0 left-1/2 hidden h-56 w-[min(92vw,920px)] -translate-x-1/2 rounded-t-[100%] border-x border-t border-white/15 bg-white/[0.035] md:block" />
+      </section>
+
+      <section className="relative z-10 -mt-10 px-4 sm:px-6">
+        <div className="mx-auto grid max-w-6xl gap-3 rounded-[2rem] border border-slate-200 bg-white p-3 shadow-[0_24px_70px_rgba(30,16,51,0.12)] md:grid-cols-3">
+          {[
+            ['Fresh drops', 'Roles found in the last 24 hours', '✦', 'bg-primary-50'],
+            ['Original links', 'Apply where the employer lives', '↗', 'bg-pink-50'],
+            ['Less noise', 'A calmer route to your next move', '⌁', 'bg-lime-50'],
+          ].map(([title, copy, icon, color]) => (
+            <div key={title} className={`flex items-start gap-4 rounded-[1.4rem] p-5 ${color}`}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-lg text-acid-300">{icon}</span>
+              <div><p className="font-display font-bold text-ink">{title}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{copy}</p></div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Category marquee */}
-      <div className="bg-acid-300 border-y-2 border-ink py-3 overflow-hidden">
-        <div className="flex whitespace-nowrap animate-marquee w-max">
-          {[...marqueeItems, ...marqueeItems].map((item, i) => (
-            <span key={i} className="mx-6 font-display font-bold text-ink text-sm">{item}</span>
-          ))}
+      <section className="relative px-4 py-28 sm:px-6">
+        <div className="motion-line absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-primary-200 to-transparent lg:block" />
+        <div className="relative mx-auto max-w-6xl">
+          <div className="max-w-xl">
+            <p className="eyebrow">DISCOVERY, BUT MAKE IT CIVILISED</p>
+            <h2 className="section-title">We did the lurking for you.</h2>
+            <p className="section-copy">Job hunting is noisy. JobMan turns the mess into a cleaner, more useful shortlist—so you can spend less time opening tabs and more time opening doors.</p>
+          </div>
+
+          <div className="mt-14 grid gap-6 lg:grid-cols-3">
+            {[
+              ['01', 'Gather the signal', 'Career pages, trusted feeds, and the corners of the internet where good roles like to hide.', '🌐'],
+              ['02', 'Cut the chaos', 'Spot duplicate listings, show what matters first, and keep the useful details easy to scan.', '✂️'],
+              ['03', 'Send you straight there', 'Find a role you like? Head straight to the original listing. No weird detours. No catfishing.', '↗️'],
+            ].map(([number, title, description, icon]) => (
+              <article key={number} className="story-card group relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm">
+                <div className="absolute right-5 top-5 text-4xl transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">{icon}</div>
+                <span className="text-xs font-bold tracking-[0.18em] text-primary-600">{number}</span>
+                <h3 className="mt-12 font-display text-2xl font-bold tracking-tight text-ink">{title}</h3>
+                <p className="mt-3 leading-relaxed text-slate-600">{description}</p>
+                <div className="mt-8 h-1.5 w-16 rounded-full bg-acid-300 transition-all duration-500 group-hover:w-full" />
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#f4efff] px-4 py-28 sm:px-6">
+        <div className="absolute -right-20 top-20 h-80 w-80 rounded-full bg-accent-400/15 blur-3xl" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <p className="eyebrow">YOUR TYPE, BUT PROFESSIONALLY</p>
+            <h2 className="section-title">Good jobs should feel less like a scavenger hunt.</h2>
+            <p className="section-copy">Browse local gigs, full-time roles, and the people who can make the work happen. Big career energy, fewer browser tabs.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {['Remote', 'Entry-level', 'Great pay', 'Near me'].map((filter) => <button key={filter} className="filter-pill" type="button">{filter} <span>+</span></button>)}
+            </div>
+            <div className="mt-9 flex flex-wrap gap-4">
+              <Link href="/jobs" className="btn-primary">Explore job listings →</Link>
+              <Link href="/gigs" className="btn-secondary">Browse local talent</Link>
+            </div>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-xl">
+            <div className="radar-ring radar-ring-one" />
+            <div className="radar-ring radar-ring-two" />
+            <div className="relative rounded-[2rem] border border-ink/10 bg-white p-5 shadow-[0_24px_70px_rgba(30,16,51,0.16)] sm:p-7">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
+                <div><p className="text-xs font-bold uppercase tracking-widest text-primary-600">Freshly found</p><h3 className="mt-1 font-display text-xl font-bold text-ink">Senior Product Designer</h3><p className="mt-1 text-sm text-slate-500">Northstar Studio · Remote</p></div>
+                <span className="rounded-full bg-acid-200 px-3 py-1.5 text-xs font-bold text-ink">92% fit</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 py-5 text-sm"><span className="job-detail">$110k–$140k</span><span className="job-detail">Full-time</span><span className="job-detail">Updated today</span><span className="job-detail">Original source ↗</span></div>
+              <div className="rounded-2xl bg-primary-50 p-4 text-sm leading-relaxed text-primary-900"><span className="font-bold">Why it&apos;s a match:</span> You&apos;ve got the product, systems, and “make it make sense” energy this role is asking for.</div>
+              <button className="mt-5 w-full rounded-xl bg-ink px-5 py-3.5 font-bold text-white transition-transform hover:-translate-y-0.5" type="button">Save this good one <span aria-hidden="true">♡</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="border-y border-ink bg-acid-300 py-3 overflow-hidden">
+        <div className="flex w-max whitespace-nowrap animate-marquee">
+          {[...marqueeItems, ...marqueeItems].map((item, index) => <span key={index} className="mx-6 font-display text-sm font-bold text-ink">{item}</span>)}
         </div>
       </div>
 
-      {/* Stats */}
-      <section className="py-12">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-3 gap-4 md:gap-8 text-center">
-          {[
-            ['10K+', 'Workers Listed', 'bg-primary-100', '-rotate-2'],
-            ['5K+', 'Jobs Posted', 'bg-acid-200', 'rotate-1'],
-            ['All 50', 'States Covered', 'bg-pink-100', '-rotate-1'],
-          ].map(([val, label, bg, tilt]) => (
-            <div key={label} className={`${bg} ${tilt} rounded-3xl border-2 border-ink shadow-pop py-6 px-2 hover:rotate-0 transition-transform`}>
-              <div className="text-3xl md:text-4xl font-display font-bold text-ink">{val}</div>
-              <div className="text-slate-600 text-sm mt-1 font-medium">{label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Gig Categories */}
-      <section className="py-16 px-4 max-w-7xl mx-auto">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <p className="text-xs font-bold text-accent-500 uppercase tracking-widest mb-1">Gig Workers</p>
-            <h2 className="text-3xl font-bold text-ink">Find Skilled Tradespeople 🛠️</h2>
-            <p className="text-slate-500 mt-1">Plumbers, electricians, cleaners, and more — near you, today.</p>
+      <section className="px-4 py-28 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div className="max-w-2xl"><p className="eyebrow">PICK A LANE. OR DON&apos;T.</p><h2 className="section-title">Real work comes in more than one flavour.</h2></div>
+            <Link href="/jobs" className="font-bold text-primary-600 hover:text-primary-700">See every listing →</Link>
           </div>
-          <Link href="/gigs" className="hidden sm:block text-primary-600 font-bold hover:underline whitespace-nowrap">View all →</Link>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {GIG_CATEGORIES.slice(0, 10).map(cat => (
-            <Link key={cat.id} href={`/gigs?category=${cat.id}`}
-              className="flex flex-col items-center gap-2.5 p-4 bg-white rounded-3xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-y-1 transition-all text-center group">
-              <span className="text-3xl group-hover:scale-125 group-hover:-rotate-6 transition-transform">{cat.icon}</span>
-              <span className="text-sm font-bold text-ink">{cat.label}</span>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-4 sm:hidden text-center">
-          <Link href="/gigs" className="text-primary-600 font-bold text-sm hover:underline">View all gig workers →</Link>
-        </div>
-      </section>
-
-      {/* Professional Categories */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest mb-1">Professional Jobs</p>
-              <h2 className="text-3xl font-bold text-ink">Full-Time & Contract Roles 💼</h2>
-              <p className="text-slate-500 mt-1">Engineers, accountants, lawyers, marketers — find your next career move.</p>
-            </div>
-            <Link href="/professionals" className="hidden sm:block text-primary-600 font-bold hover:underline whitespace-nowrap">View all →</Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {PROFESSIONAL_CATEGORIES.slice(0, 8).map(cat => (
-              <Link key={cat.id} href={`/professionals?category=${cat.id}`}
-                className="flex items-center gap-3 p-4 bg-white rounded-3xl border-2 border-ink shadow-pop-sm hover:shadow-pop hover:-translate-y-1 transition-all group">
-                <span className="text-2xl group-hover:scale-125 group-hover:rotate-6 transition-transform">{cat.icon}</span>
-                <span className="text-sm font-bold text-ink">{cat.label}</span>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[...GIG_CATEGORIES.slice(0, 4), ...PROFESSIONAL_CATEGORIES.slice(0, 4)].map((category, index) => (
+              <Link key={category.id} href={index < 4 ? `/gigs?category=${category.id}` : `/professionals?category=${category.id}`} className="category-tile group">
+                <span className="text-4xl transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110">{category.icon}</span>
+                <span className="mt-8 font-display text-lg font-bold text-ink">{category.label}</span>
+                <span className="mt-1 text-sm text-slate-500">Go where your skills are wanted →</span>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">How it works</p>
-          <h2 className="text-3xl font-bold text-ink mb-12">Up and running in minutes ⏱️</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { icon: '👤', title: 'Create Your Profile', desc: 'Sign up free as a worker or employer. Build your profile in under 5 minutes.', bg: 'bg-primary-100' },
-              { icon: '🔍', title: 'Browse or Get Found', desc: 'Search for the right hire, or let employers discover you based on your skills.', bg: 'bg-acid-200' },
-              { icon: '💬', title: 'Connect & Get to Work', desc: 'Message directly, share files and photos, and close the deal — all in-app.', bg: 'bg-pink-100' },
-            ].map((step, i) => (
-              <div key={step.title} className={`${step.bg} rounded-3xl border-2 border-ink shadow-pop p-6 text-center relative hover:-translate-y-1 transition-transform`}>
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-ink text-acid-300 text-sm font-display font-bold flex items-center justify-center border-2 border-ink">
-                  {i + 1}
-                </div>
-                <div className="text-4xl mb-4 mt-2">{step.icon}</div>
-                <h3 className="text-lg font-bold text-ink">{step.title}</h3>
-                <p className="text-slate-600 text-sm mt-2 leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
+      <section className="relative overflow-hidden bg-ink px-4 py-28 text-white sm:px-6">
+        <div className="hero-grid absolute inset-0 opacity-25" />
+        <div className="hero-aurora hero-aurora-one opacity-50" />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <span className="inline-flex rounded-full bg-white/10 px-4 py-2 text-xs font-bold tracking-widest text-acid-300">YOUR NEXT ROLE IS NOT HIDING IN ANOTHER TAB</span>
+          <h2 className="mt-7 font-display text-4xl font-bold leading-tight tracking-tight sm:text-6xl">Make LinkedIn jealous.<br /><span className="text-acid-300">Respectfully.</span></h2>
+          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/65">Create a profile, find the good stuff, and get a little closer to work that works for you.</p>
+          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row"><Link href="/sign-up" className="rounded-2xl bg-acid-300 px-7 py-4 font-bold text-ink transition-transform hover:-translate-y-1">Create your free profile →</Link><Link href="/jobs" className="rounded-2xl border border-white/25 bg-white/5 px-7 py-4 font-bold text-white backdrop-blur transition-colors hover:bg-white/10">Browse all jobs</Link></div>
         </div>
       </section>
-
-      {/* CTA Banner */}
-      <section className="relative bg-ink text-white py-20 px-4 text-center overflow-hidden">
-        <div className="absolute inset-0 opacity-25">
-          <div className="absolute top-0 left-1/4 w-64 h-64 rounded-full bg-accent-500 blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-primary-600 blur-3xl" />
-        </div>
-        <div className="relative max-w-2xl mx-auto">
-          <h2 className="text-4xl font-bold mb-4">Ready to get started? 🚀</h2>
-          <p className="text-white/60 mb-8 text-lg">Join thousands of workers and employers on JobMan — it&apos;s 100% free to get started.</p>
-          <Link href="/sign-up" className="inline-block bg-acid-300 text-ink font-bold px-10 py-4 rounded-2xl text-lg border-2 border-ink shadow-pop-pink hover:-translate-y-1 hover:shadow-pop-lg transition-all">
-            Create Free Account →
-          </Link>
-        </div>
-      </section>
-
     </div>
   );
 }

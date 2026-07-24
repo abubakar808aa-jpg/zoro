@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyFirebaseToken } from '@/lib/verify-token';
 import { makeRateLimiter } from '@/lib/rate-limit';
 import { getStripe, BOOST_PRICE_CENTS, BOOST_DURATION_DAYS } from '@/lib/stripe';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 const checkRateLimit = makeRateLimiter(5, 60_000);
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
   }
 
-  const jobSnap = await adminDb.doc(`jobs/${jobId}`).get();
+  const jobSnap = await getAdminDb().doc(`jobs/${jobId}`).get();
   const job = jobSnap.data();
   if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   if (job.postedBy !== uid) {

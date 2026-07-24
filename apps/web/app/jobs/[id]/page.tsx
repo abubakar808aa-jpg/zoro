@@ -239,8 +239,8 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      {/* Vibe Check */}
-      {accountType !== 'employer' && job.status === 'open' && (
+      {/* Vibe Check — native open jobs only (imported roles apply out) */}
+      {!job.isImported && accountType !== 'employer' && job.status === 'open' && (
         <div className="card mb-6">
           {vibe ? (
             <div>
@@ -278,7 +278,15 @@ export default function JobDetailPage() {
       )}
 
       {/* Apply Section */}
-      {accountType !== 'employer' && job.status !== 'open' ? (
+      {job.isImported && job.applyUrl ? (
+        /* Imported roles keep applications with the original employer. */
+        <div className="card text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original employer listing</p>
+          <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.postedByName}</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. Your application stays with the employer — no weird detours.</p>
+          <a href={job.applyUrl} target="_blank" rel="noreferrer" className="btn-primary mt-5 inline-flex">Apply on the employer site ↗</a>
+        </div>
+      ) : accountType !== 'employer' && job.status !== 'open' ? (
         <div className="card text-center py-8">
           <div className="text-4xl mb-2">🔒</div>
           <p className="font-semibold text-slate-900">This job is closed</p>

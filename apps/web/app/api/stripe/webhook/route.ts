@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getStripe, BOOST_DURATION_DAYS } from '@/lib/stripe';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       const boostedUntil = Timestamp.fromMillis(
         Date.now() + BOOST_DURATION_DAYS * 24 * 60 * 60 * 1000
       );
-      await adminDb.doc(`jobs/${jobId}`).update({ boosted: true, boostedUntil });
+      await getAdminDb().doc(`jobs/${jobId}`).update({ boosted: true, boostedUntil });
     }
   }
 

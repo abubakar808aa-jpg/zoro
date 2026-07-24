@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyFirebaseToken } from '@/lib/verify-token';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // All admin mutations run server-side after an isAdmin check against Firestore —
 // the client-side guard on /admin pages is UX only, never the security boundary.
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const adminDb = getAdminDb();
   const callerSnap = await adminDb.doc(`users/${callerUid}`).get();
   if (callerSnap.data()?.isAdmin !== true) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });

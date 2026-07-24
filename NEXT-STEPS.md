@@ -1,4 +1,6 @@
-# JobMan — Launch Checklist (detailed steps)
+# JobMan — Launch Checklist
+
+> Before running this checklist, deploy the repository versions of `firestore.rules` and `storage.rules` with `firebase deploy --only firestore:rules,storage`. Do not replace them with the legacy example below; the checked-in Firestore rules also protect imported job listings.
 
 ## Task 1 — Deploy Firestore Indexes + Security Rules (~5 min)
 
@@ -45,8 +47,7 @@ If every step works, your marketplace is fully functional.
 1. On your phone: install **Expo Go** (App Store / Play Store)
 2. In Terminal:
    ```bash
-   cd ~/Desktop/JobMan/apps/mobile
-   npx expo start
+   yarn mobile
    ```
 3. Scan the QR code (iPhone: Camera app; Android: inside Expo Go)
 4. Phone and Mac must be on the same Wi-Fi
@@ -59,10 +60,10 @@ If every step works, your marketplace is fully functional.
 ## Task 4 — Deploy the Website (Vercel, free)
 
 1. Create accounts: github.com and vercel.com (sign in to Vercel *with* GitHub)
-2. Push the code (`.env.local` is gitignored — your API key will NOT be uploaded)
-3. Vercel → **Add New… → Project** → Import the repo
+2. Push the code (`.env.local` is gitignored — your keys will NOT be uploaded). Optionally run `yarn validate` first (typecheck + build).
+3. Vercel → **Add New… → Project** → Import `jobman`
 4. Set **Root Directory** to `apps/web` (leave "Include source files outside of the Root Directory" enabled — the app imports from `packages/shared`)
-5. **Environment Variables**: add everything from `apps/web/.env.example` — at minimum `ANTHROPIC_API_KEY`
+5. **Environment Variables**: add the required `NEXT_PUBLIC_FIREBASE_*` values (from `apps/web/.env.example`), plus `ANTHROPIC_API_KEY` for AI features. Add `FIREBASE_SERVICE_ACCOUNT_KEY` (needed for boosts, admin actions, and ingestion) and `INGESTION_SECRET` before enabling job-board ingestion.
 6. Deploy → you get `jobman-xyz.vercel.app`
 7. **IMPORTANT:** Firebase Console → Authentication → Settings →
    **Authorized domains** → Add your vercel.app domain (sign-in breaks without this)

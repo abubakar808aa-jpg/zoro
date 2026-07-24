@@ -48,6 +48,11 @@ export default function JobsPage() {
   }, [typeFilter]);
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get('q');
+    if (query) setSearch(query);
+  }, []);
+
+  useEffect(() => {
     if (user) getProfile(user.uid).then(setProfile).catch(() => setProfile(null));
     else setProfile(null);
   }, [user]);
