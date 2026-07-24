@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { getJob, applyToJob, getProfile, setJobStatus, deleteJob } from '@/lib/firestore';
+import { getJob, applyToJob, getProfile, setJobStatus, deleteJob, saveJob, unsaveJob, isJobSaved, trackOutboundClick } from '@/lib/firestore';
 import { generateCoverLetter, vibeCheckJob, analyzeSkillGaps, checkSalaryFairness, type VibeCheck, type SkillGaps, type SalaryIntel } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
+import { jobFreshness, SOURCE_LABELS } from '@/lib/freshness';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
 function salaryString(job: JobListing): string {
@@ -19,6 +20,16 @@ const FAIRNESS_STYLES: Record<SalaryIntel['fairness'], { label: string; cls: str
   fair: { label: '⚖️ Fair pay', cls: 'bg-green-100 text-green-700' },
   above: { label: '🚀 Above market', cls: 'bg-acid-300 text-ink' },
 };
+
+const FRESHNESS_STYLE: Record<string, string> = {
+  new: 'bg-acid-300 text-ink',
+  live: 'bg-green-100 text-green-700',
+  checked: 'bg-slate-100 text-slate-500',
+  stale: 'bg-amber-100 text-amber-700',
+  closed: 'bg-red-100 text-red-600',
+};
+
+const REMOTE_LABEL: Record<string, string> = { remote: '🏠 Remote', hybrid: '🔀 Hybrid', onsite: '📍 On-site' };
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +48,28 @@ export default function JobDetailPage() {
   const [gapsLoading, setGapsLoading] = useState(false);
   const [salaryIntel, setSalaryIntel] = useState<SalaryIntel | null>(null);
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+
+  useEffect(() => {
+    if (user && id) isJobSaved(user.uid, id).then(setSaved).catch(() => {});
+  }, [user, id]);
+
+  async function handleToggleSave() {
+    if (!user) { router.push('/sign-in'); return; }
+    if (!job || saveBusy) return;
+    setSaveBusy(true);
+    const next = !saved;
+    setSaved(next);
+    try {
+      if (next) await saveJob(user.uid, { id: job.id, title: job.title, companyName: job.companyName, postedByName: job.postedByName });
+      else await unsaveJob(user.uid, job.id);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setSaveBusy(false);
+    }
+  }
 
   async function handleVibeCheck() {
     if (!job) return;
@@ -149,6 +182,8 @@ export default function JobDetailPage() {
   if (!job) return <div className="text-center py-20 text-slate-400">Job not found.</div>;
 
   const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
+  const fresh = jobFreshness(job);
+  const remoteLabel = job.remoteType ? REMOTE_LABEL[job.remoteType] : (job.remote ? '🏠 Remote OK' : '');
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -158,23 +193,37 @@ export default function JobDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{job.title}</h1>
-            <p className="text-slate-500 mt-1">{job.postedByName} · {job.location}{job.remote ? ' · Remote OK' : ''}</p>
+            <p className="text-slate-500 mt-1">{job.companyName ?? job.postedByName} · {job.location}{remoteLabel ? ` · ${remoteLabel}` : ''}</p>
             <p className="text-xs text-slate-400 mt-0.5">Posted {posted}</p>
           </div>
-          {job.salary && (
-            <div className="text-right flex-shrink-0">
-              <div className="font-bold text-lg text-slate-900">
-                ${job.salary.min.toLocaleString()}–${job.salary.max.toLocaleString()}
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            {job.salary && (
+              <div className="text-right">
+                <div className="font-bold text-lg text-slate-900">
+                  {job.salary.currency && job.salary.currency !== 'USD' ? `${job.salary.currency} ` : '$'}{job.salary.min.toLocaleString()}–{job.salary.min !== job.salary.max ? job.salary.max.toLocaleString() : ''}
+                </div>
+                <div className="text-xs text-slate-500">per {job.salary.period === 'hourly' ? 'hour' : 'year'}</div>
               </div>
-              <div className="text-xs text-slate-500">per {job.salary.period === 'hourly' ? 'hour' : 'year'}</div>
-            </div>
-          )}
+            )}
+            <button type="button" onClick={handleToggleSave} disabled={saveBusy}
+              className={`badge text-sm border-2 border-ink px-3 py-1.5 ${saved ? 'bg-acid-300 text-ink' : 'bg-white text-ink hover:bg-slate-50'}`}>
+              {saved ? '★ Saved' : '☆ Save'}
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mt-4">
           <span className="badge bg-blue-100 text-blue-700">{job.type}</span>
           <span className="badge bg-slate-100 text-slate-600">{job.category}</span>
-          <span className="badge bg-slate-100 text-slate-500">{job.applicantCount} applicants</span>
+          {job.isImported ? (
+            <>
+              <span className="badge bg-slate-100 text-slate-600">via {SOURCE_LABELS[job.sourceProvider ?? ''] ?? 'source'}</span>
+              {fresh && <span className={`badge ${FRESHNESS_STYLE[fresh.tone]}`}>{fresh.label}</span>}
+              {(job.sourceCount ?? 1) > 1 && <span className="badge bg-slate-100 text-slate-500">on {job.sourceCount} boards</span>}
+            </>
+          ) : (
+            <span className="badge bg-slate-100 text-slate-500">{job.applicantCount} applicants</span>
+          )}
           {job.genZTags?.map(tag => {
             const t = GEN_Z_TAGS.find(g => g.id === tag);
             return t ? <span key={tag} className="badge bg-primary-100 text-primary-700">{t.emoji} {t.label}</span> : null;
@@ -279,12 +328,17 @@ export default function JobDetailPage() {
 
       {/* Apply Section */}
       {job.isImported && job.applyUrl ? (
-        /* Imported roles keep applications with the original employer. */
+        /* Imported roles keep applications with the original employer. JobMan
+           never submits applications — we only link out to the official page. */
         <div className="card text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original employer listing</p>
-          <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.postedByName}</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. Your application stays with the employer — no weird detours.</p>
-          <a href={job.applyUrl} target="_blank" rel="noreferrer" className="btn-primary mt-5 inline-flex">Apply on the employer site ↗</a>
+          <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.companyName ?? job.postedByName}</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">
+            JobMan found and organized this role from {SOURCE_LABELS[job.sourceProvider ?? ''] ?? 'the employer'}. We don&apos;t collect your application — you apply on the company&apos;s own site.
+          </p>
+          <a href={job.applyUrl} target="_blank" rel="noreferrer" onClick={() => trackOutboundClick(job.id)}
+            className="btn-primary mt-5 inline-flex">Apply on company site ↗</a>
+          <p className="mt-3 text-xs text-slate-400">You&apos;re heading to {job.companyName ?? job.postedByName}&apos;s official careers page.</p>
         </div>
       ) : accountType !== 'employer' && job.status !== 'open' ? (
         <div className="card text-center py-8">

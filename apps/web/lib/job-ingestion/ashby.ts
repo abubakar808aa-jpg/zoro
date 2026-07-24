@@ -1,6 +1,6 @@
 import type { JobSource } from '@jobman/shared/src/types';
 import type { ImportedJob } from './greenhouse';
-import { inferCategory, inferRemote, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
+import { inferCategory, inferRemote, inferRemoteType, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
 
 export type AshbySource = Pick<JobSource, 'boardToken' | 'companyName' | 'careersUrl'>;
 type AshbyJob = { id?: string; title: string; location?: string; department?: string; team?: string; isListed?: boolean; isRemote?: boolean; workplaceType?: string; descriptionPlain?: string; descriptionHtml?: string; publishedAt?: string; employmentType?: string; jobUrl?: string; applyUrl?: string; compensation?: { summaryComponents?: Array<{ compensationType?: string; interval?: string; currencyCode?: string; minValue?: number; maxValue?: number }> } };
@@ -8,7 +8,8 @@ type AshbyJob = { id?: string; title: string; location?: string; department?: st
 function salary(job: AshbyJob) {
   const component = job.compensation?.summaryComponents?.find(item => item.compensationType === 'Salary' && typeof item.minValue === 'number' && typeof item.maxValue === 'number');
   if (!component) return undefined;
-  return { min: component.minValue!, max: component.maxValue!, period: /hour/i.test(component.interval ?? '') ? 'hourly' : 'annual' } as const;
+  const period: 'hourly' | 'annual' = /hour/i.test(component.interval ?? '') ? 'hourly' : 'annual';
+  return { min: component.minValue!, max: component.maxValue!, period, ...(component.currencyCode ? { currency: component.currencyCode } : {}) };
 }
 
 export function normalizeAshbyJob(job: AshbyJob, source: AshbySource): ImportedJob {
@@ -20,9 +21,15 @@ export function normalizeAshbyJob(job: AshbyJob, source: AshbySource): ImportedJ
   return { id: sourceJobId, sourceDocumentId: sourceDocumentId('ashby', source.boardToken, sourceJobId), title: job.title.trim(), description,
     type: inferType(`${job.employmentType ?? ''} ${context}`), category: inferCategory(context), location,
     remote: Boolean(job.isRemote) || /remote|hybrid/i.test(job.workplaceType ?? '') || inferRemote(`${location} ${context}`), salary: salary(job),
-    requirements: [], skills: [], postedBy: 'jobman-import', postedByName: source.companyName, status: 'open', applicantCount: 0,
+    remoteType: job.isRemote || job.workplaceType === 'Remote' ? 'remote'
+      : /hybrid/i.test(job.workplaceType ?? '') ? 'hybrid'
+      : inferRemoteType(`${location} ${context}`),
+    department: job.department || job.team || undefined,
+    requirements: [], skills: [], postedBy: 'jobman-import', postedByName: source.companyName, companyName: source.companyName,
+    status: 'open', applicantCount: 0,
     sourceProvider: 'ashby', sourceJobId, sourceUrl: source.careersUrl || job.jobUrl || job.applyUrl, applyUrl: job.applyUrl || job.jobUrl,
-    sourceUpdatedAt: toDate(job.publishedAt), lastSeenAt: new Date(), isImported: true };
+    postedAt: toDate(job.publishedAt),
+    sourceUpdatedAt: toDate(job.publishedAt), lastSeenAt: new Date(), isImported: true, raw: job };
 }
 
 export async function fetchAshbyJobs(source: AshbySource) {

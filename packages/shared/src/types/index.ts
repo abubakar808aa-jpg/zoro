@@ -84,7 +84,7 @@ export interface JobListing {
   category: string;
   location: string;
   remote: boolean;
-  salary?: { min: number; max: number; period: 'hourly' | 'annual' };
+  salary?: { min: number; max: number; period: 'hourly' | 'annual'; currency?: string };
   requirements: string[];
   skills: string[];
   postedBy: string;       // uid
@@ -97,14 +97,41 @@ export interface JobListing {
   genZTags?: GenZTag[];
   createdAt: Date;
   // Present only when JobMan indexes a public employer job board. These jobs
-  // always route applicants to the employer's original application page.
+  // always route applicants to the employer's original application page —
+  // JobMan never submits applications on anyone's behalf.
   sourceProvider?: JobSourceProvider;
   sourceJobId?: string;
-  sourceUrl?: string;
-  applyUrl?: string;
+  sourceKey?: string;      // board token / feed key the job was ingested under
+  sourceUrl?: string;      // listing page on the source board
+  applyUrl?: string;       // the employer/ATS application link (always separate from sourceUrl)
   sourceUpdatedAt?: Date;
   lastSeenAt?: Date;
   isImported?: boolean;
+  companyId?: string;      // normalized company slug
+  companyName?: string;    // mirrors postedByName for imported jobs
+  remoteType?: RemoteType;
+  department?: string;
+  postedAt?: Date;         // publish date reported by the provider
+  firstSeenAt?: Date;      // when JobMan first ingested it (never overwritten)
+  missedChecks?: number;   // consecutive successful source fetches that omitted this job
+  closedReason?: 'source_removed' | 'manual';
+  closedAt?: Date;
+  fingerprint?: string;    // dedupe hash: company|title|location|type
+  // When the same role appears on multiple boards, one listing wins and the
+  // others are recorded here instead of creating duplicates.
+  alternateSources?: AlternateSource[];
+  sourceCount?: number;
+  outboundClicks?: number; // count of "Apply on company site" clicks (no PII)
+}
+
+export type RemoteType = 'remote' | 'hybrid' | 'onsite';
+
+export interface AlternateSource {
+  provider: JobSourceProvider;
+  sourceKey: string;
+  sourceJobId: string;
+  sourceUrl?: string;
+  applyUrl?: string;
 }
 
 export interface JobSource {
@@ -114,9 +141,56 @@ export interface JobSource {
   companyName: string;
   careersUrl?: string;
   active: boolean;
+  priority?: boolean;          // priority sources refresh every 2–4h, normal 6–12h
+  region?: 'global' | 'eu';    // lever only
   lastFetchedAt?: Date;
   lastSuccessAt?: Date;
   lastError?: string;
+  consecutiveFailures?: number;
+  nextFetchAt?: Date;          // scheduler due time (includes backoff)
+}
+
+// One document per scheduler invocation of /api/ingest/run.
+export interface IngestionRun {
+  id: string;
+  startedAt: Date;
+  finishedAt: Date;
+  trigger: 'schedule' | 'manual';
+  sourcesChecked: number;
+  sourcesSkipped: number;
+  sourcesFailed: number;
+  jobsFound: number;
+  jobsCreated: number;
+  jobsUpdated: number;
+  jobsClosed: number;
+  jobsMerged: number;          // duplicates folded into an existing listing
+  errors: string[];
+}
+
+// One document per source fetch (whether from the scheduler or a manual POST).
+export interface SourceFetchLog {
+  id: string;
+  provider: JobSourceProvider;
+  sourceKey: string;
+  requestedAt: Date;
+  durationMs: number;
+  responseStatus: 'ok' | 'error';
+  jobsFound: number;
+  jobsCreated: number;
+  jobsUpdated: number;
+  jobsClosed: number;
+  jobsMerged: number;
+  error?: string;
+  runId?: string;              // ingestionRuns doc id when scheduler-triggered
+}
+
+export interface SavedJob {
+  id: string;                  // `${uid}_${jobId}`
+  uid: string;
+  jobId: string;
+  jobTitle: string;
+  companyName: string;
+  savedAt: Date;
 }
 
 export type GenZTag = 'remote-first' | 'flexible' | 'no-degree' | 'side-hustle' | 'mentorship';

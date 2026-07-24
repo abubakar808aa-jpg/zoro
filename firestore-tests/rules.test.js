@@ -231,3 +231,70 @@ describe('reports', () => {
     await assertSucceeds(getDoc(doc(db('boss'), 'reports/r1')));
   });
 });
+
+// ── job-discovery data layer ────────────────────────────────────────────────
+describe('imported jobs (read-only to clients)', () => {
+  const imported = {
+    title: 'Staff Engineer', postedBy: 'jobman-import', postedByName: 'Acme',
+    status: 'open', applicantCount: 0, type: 'fulltime', isImported: true,
+    applyUrl: 'https://acme.example/apply', sourceProvider: 'greenhouse',
+  };
+
+  test('anyone can read imported jobs', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertSucceeds(getDoc(doc(db('alice'), 'jobs/greenhouse_acme_1')));
+  });
+
+  test('clients cannot edit an imported job', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertFails(updateDoc(doc(db('alice'), 'jobs/greenhouse_acme_1'), { title: 'Hacked' }));
+  });
+
+  test('clients cannot even bump applicantCount on an imported job', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertFails(updateDoc(doc(db('alice'), 'jobs/greenhouse_acme_1'), { applicantCount: 1 }));
+  });
+
+  test('clients cannot forge isImported on their own job at create', async () => {
+    await assertFails(setDoc(doc(db('emp'), 'jobs/j9'), {
+      title: 'Fake', postedBy: 'emp', status: 'open', applicantCount: 0, type: 'fulltime', isImported: true,
+    }));
+  });
+});
+
+describe('jobRaw (server-only)', () => {
+  test('clients cannot read or write raw provider payloads', async () => {
+    await seed('jobRaw/greenhouse_acme_1', { provider: 'greenhouse', raw: { secret: 'x' } });
+    await assertFails(getDoc(doc(db('alice'), 'jobRaw/greenhouse_acme_1')));
+    await assertFails(setDoc(doc(db('alice'), 'jobRaw/x'), { raw: {} }));
+  });
+});
+
+describe('ingestion telemetry (admin-read, server-write)', () => {
+  test('non-admins cannot read runs/logs; admins can; clients cannot write', async () => {
+    await seed('ingestionRuns/r1', { trigger: 'schedule', jobsCreated: 3 });
+    await seed('sourceFetchLogs/l1', { provider: 'lever', responseStatus: 'ok' });
+    await seed('users/boss', { uid: 'boss', name: 'Boss', accountType: 'employer', isAdmin: true });
+    await assertFails(getDoc(doc(db('bob'), 'ingestionRuns/r1')));
+    await assertSucceeds(getDoc(doc(db('boss'), 'ingestionRuns/r1')));
+    await assertFails(getDoc(doc(db('bob'), 'sourceFetchLogs/l1')));
+    await assertSucceeds(getDoc(doc(db('boss'), 'sourceFetchLogs/l1')));
+    await assertFails(setDoc(doc(db('boss'), 'ingestionRuns/r2'), { trigger: 'manual' }));
+  });
+});
+
+describe('savedJobs (owner-only)', () => {
+  const saved = { uid: 'alice', jobId: 'greenhouse_acme_1', jobTitle: 'Staff Engineer', companyName: 'Acme' };
+
+  test('a user can save, read, and unsave their own bookmark', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1'), saved));
+    await assertSucceeds(getDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1')));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1')));
+  });
+
+  test('cannot save as someone else, nor read their bookmarks', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'savedJobs/alice_greenhouse_acme_1'), saved));
+    await seed('savedJobs/alice_greenhouse_acme_1', saved);
+    await assertFails(getDoc(doc(db('mallory'), 'savedJobs/alice_greenhouse_acme_1')));
+  });
+});

@@ -1,5 +1,5 @@
 import type { JobListing, JobSource } from '@jobman/shared/src/types';
-import { inferCategory, inferRemote, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
+import { inferCategory, inferRemote, inferRemoteType, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
 
 const GREENHOUSE_API = 'https://boards-api.greenhouse.io/v1/boards';
 const BOARD_TOKEN = /^[a-zA-Z0-9_-]+$/;
@@ -23,6 +23,9 @@ interface GreenhouseResponse { jobs: GreenhouseJob[]; }
 export interface ImportedJob extends Omit<JobListing, 'id' | 'createdAt'> {
   id: string;
   sourceDocumentId: string;
+  // Raw provider payload — persisted server-only to jobRaw/{docId} for
+  // debugging; never written to the public jobs document.
+  raw?: unknown;
 }
 
 export function greenhouseDocumentId(boardToken: string, jobId: number | string) {
@@ -44,19 +47,24 @@ export function normalizeGreenhouseJob(job: GreenhouseJob, source: GreenhouseSou
     category: inferCategory(`${job.title} ${department} ${description}`),
     location,
     remote: inferRemote(`${job.title} ${location} ${description}`),
+    remoteType: inferRemoteType(`${job.title} ${location} ${description}`),
+    department: department || undefined,
     requirements: [],
     skills: [],
     postedBy: 'jobman-import',
     postedByName: source.companyName,
+    companyName: source.companyName,
     status: 'open',
     applicantCount: 0,
     sourceProvider: 'greenhouse',
     sourceJobId: String(job.id),
     sourceUrl: source.careersUrl || job.absolute_url,
     applyUrl: job.absolute_url,
+    postedAt: toDate(job.updated_at),
     sourceUpdatedAt: toDate(job.updated_at),
     lastSeenAt: new Date(),
     isImported: true,
+    raw: job,
   };
 }
 

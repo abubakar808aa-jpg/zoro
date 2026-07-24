@@ -1,6 +1,6 @@
 import type { JobSource } from '@jobman/shared/src/types';
 import type { ImportedJob } from './greenhouse';
-import { inferCategory, inferRemote, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
+import { inferCategory, inferRemote, inferRemoteType, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
 
 export type LeverSource = Pick<JobSource, 'boardToken' | 'companyName' | 'careersUrl'> & { region?: 'global' | 'eu' };
 
@@ -20,8 +20,8 @@ type LeverJob = {
 function salary(job: LeverJob) {
   const range = job.salaryRange;
   if (!range || typeof range.min !== 'number' || typeof range.max !== 'number') return undefined;
-  const period = /hour/i.test(range.interval ?? '') ? 'hourly' : 'annual';
-  return { min: range.min, max: range.max, period } as const;
+  const period: 'hourly' | 'annual' = /hour/i.test(range.interval ?? '') ? 'hourly' : 'annual';
+  return { min: range.min, max: range.max, period, ...(range.currency ? { currency: range.currency } : {}) };
 }
 
 export function normalizeLeverJob(job: LeverJob, source: LeverSource): ImportedJob {
@@ -34,11 +34,18 @@ export function normalizeLeverJob(job: LeverJob, source: LeverSource): ImportedJ
     title: job.text.trim(), description, type: inferType(`${job.categories?.commitment ?? ''} ${context}`),
     category: inferCategory(context), location,
     remote: job.workplaceType === 'remote' || job.workplaceType === 'hybrid' || inferRemote(`${location} ${context}`),
+    remoteType: job.workplaceType === 'remote' ? 'remote'
+      : job.workplaceType === 'hybrid' ? 'hybrid'
+      : inferRemoteType(`${location} ${context}`),
+    department: job.categories?.department || job.categories?.team || undefined,
     salary: salary(job), requirements: [], skills: [], postedBy: 'jobman-import', postedByName: source.companyName,
+    companyName: source.companyName,
     status: 'open', applicantCount: 0, sourceProvider: 'lever', sourceJobId: job.id,
     sourceUrl: source.careersUrl || job.hostedUrl || job.applyUrl,
     applyUrl: job.applyUrl || job.hostedUrl,
+    postedAt: toDate(job.createdAt),
     sourceUpdatedAt: toDate(job.createdAt), lastSeenAt: new Date(), isImported: true,
+    raw: job,
   };
 }
 

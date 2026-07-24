@@ -10,6 +10,7 @@
     "build:web": "yarn workspace @jobman/web build",
     "validate": "yarn typecheck && yarn build",
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
+    "test:unit": "node --test --experimental-strip-types firestore-tests/normalize.test.ts",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-jobman \"npm --prefix firestore-tests test\""
   }
 }

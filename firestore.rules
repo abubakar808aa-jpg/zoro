@@ -96,5 +96,28 @@ service cloud.firestore {
       // Only staff can browse reports; resolution happens server-side.
       allow read: if isAdmin();
     }
+    // Raw provider payloads — server-only/debug-only. Never exposed to clients;
+    // the ingestion route writes these through the Admin SDK, which bypasses rules.
+    match /jobRaw/{id} {
+      allow read, write: if false;
+    }
+    // Ingestion telemetry — staff-readable, written only server-side.
+    match /ingestionRuns/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /sourceFetchLogs/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // A user's saved/bookmarked jobs — private to the owner. Doc id is
+    // `${uid}_${jobId}` and the doc carries uid.
+    match /savedJobs/{id} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.jobId is string;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+    }
   }
 }

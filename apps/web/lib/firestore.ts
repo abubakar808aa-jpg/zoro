@@ -9,7 +9,7 @@ import { db, storage } from './firebase';
 import type {
   JobListing, GigProfile, ProfessionalProfile, Message, Conversation,
   Application, ApplicationStatus, JobStatus,
-  Follow, FeedEvent, Report, User,
+  Follow, FeedEvent, Report, User, SavedJob,
 } from '@jobman/shared/src/types';
 
 export const JOBS_PAGE_SIZE = 20;
@@ -408,4 +408,68 @@ export async function getAllJobs(
     jobs: snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)),
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
   };
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+// Loads a wide window of open jobs for client-side filtering (spec §6: use the
+// current database first; move to Postgres/full-text search only at scale).
+// Closed jobs are excluded here — they stay queryable by id for history only.
+export async function getOpenJobsForSearch(max = 200): Promise<JobListing[]> {
+  const snap = await getDocs(query(
+    collection(db, 'jobs'),
+    where('status', '==', 'open'),
+    orderBy('createdAt', 'desc'),
+    limit(max),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing));
+}
+
+// ── Saved jobs ──────────────────────────────────────────────────────────────
+
+export async function saveJob(uid: string, job: Pick<JobListing, 'id' | 'title'> & { companyName?: string; postedByName?: string }) {
+  await setDoc(doc(db, 'savedJobs', `${uid}_${job.id}`), {
+    uid,
+    jobId: job.id,
+    jobTitle: job.title,
+    companyName: job.companyName ?? job.postedByName ?? '',
+    savedAt: serverTimestamp(),
+  });
+}
+
+export async function unsaveJob(uid: string, jobId: string) {
+  await deleteDoc(doc(db, 'savedJobs', `${uid}_${jobId}`));
+}
+
+export async function isJobSaved(uid: string, jobId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'savedJobs', `${uid}_${jobId}`));
+  return snap.exists();
+}
+
+export async function getSavedJobs(uid: string): Promise<SavedJob[]> {
+  const snap = await getDocs(query(
+    collection(db, 'savedJobs'),
+    where('uid', '==', uid),
+    orderBy('savedAt', 'desc'),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as SavedJob));
+}
+
+// ── Outbound click tracking (analytics only, no PII) ─────────────────────────
+
+// Fire-and-forget: records an "Apply on company site" click. The counter is
+// bumped server-side (Admin SDK) via /api/track/outbound so browser clients
+// never get write access to arbitrary job fields.
+export function trackOutboundClick(jobId: string) {
+  try {
+    const body = JSON.stringify({ jobId });
+    // sendBeacon survives the navigation to the employer site.
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track/outbound', new Blob([body], { type: 'application/json' }));
+    } else {
+      fetch('/api/track/outbound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    }
+  } catch {
+    /* analytics must never block the outbound click */
+  }
 }

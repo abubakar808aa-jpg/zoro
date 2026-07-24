@@ -1,5 +1,5 @@
 import type { ImportedJob } from './greenhouse';
-import { inferCategory, inferRemote, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
+import { inferCategory, inferRemote, inferRemoteType, inferType, sourceDocumentId, stripHtml, toDate } from './shared';
 
 export type SmartRecruitersSource = { sourceKey: string; companyName?: string; careersUrl?: string; smartToken: string };
 type SmartRecruitersJob = { id: string; uuid?: string; name: string; jobAdUrl?: string; applyUrl?: string; postedDate?: string; location?: { city?: string; region?: string; country?: string }; company?: { name?: string }; function?: { label?: string }; typeOfEmployment?: { label?: string }; jobAd?: { jobDescription?: string; qualifications?: string } };
@@ -12,9 +12,12 @@ export function normalizeSmartRecruitersJob(job: SmartRecruitersJob, source: Sma
   const context = `${job.name} ${job.function?.label ?? ''} ${description}`;
   return { id: sourceJobId, sourceDocumentId: sourceDocumentId('smartrecruiters', source.sourceKey, sourceJobId), title: job.name.trim(), description,
     type: inferType(`${job.typeOfEmployment?.label ?? ''} ${context}`), category: inferCategory(context), location, remote: inferRemote(`${location} ${context}`),
-    requirements: [], skills: [], postedBy: 'jobman-import', postedByName: companyName, status: 'open', applicantCount: 0,
+    remoteType: inferRemoteType(`${location} ${context}`),
+    department: job.function?.label || undefined,
+    requirements: [], skills: [], postedBy: 'jobman-import', postedByName: companyName, companyName, status: 'open', applicantCount: 0,
     sourceProvider: 'smartrecruiters', sourceJobId, sourceUrl: source.careersUrl || job.jobAdUrl || job.applyUrl, applyUrl: job.applyUrl || job.jobAdUrl,
-    sourceUpdatedAt: toDate(job.postedDate), lastSeenAt: new Date(), isImported: true };
+    postedAt: toDate(job.postedDate),
+    sourceUpdatedAt: toDate(job.postedDate), lastSeenAt: new Date(), isImported: true, raw: job };
 }
 
 export async function fetchSmartRecruitersJobs(source: SmartRecruitersSource) {
