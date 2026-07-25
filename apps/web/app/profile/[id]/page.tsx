@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { getProfile, getOrCreateConversation, followUser, unfollowUser, isFollowing, getFollowerCount } from '@/lib/firestore';
+import Link from 'next/link';
+import { getProfile, followUser, unfollowUser, isFollowing, getFollowerCount } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import ConnectButton from '@/components/ConnectButton';
 import type { GigProfile, ProfessionalProfile } from '@jobman/shared/src/types';
 
 export default function ProfilePage() {
@@ -15,7 +15,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [messaging, setMessaging] = useState(false);
   const [following, setFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followBusy, setFollowBusy] = useState(false);
@@ -50,21 +49,6 @@ export default function ProfilePage() {
     } finally {
       setFollowBusy(false);
     }
-  }
-
-  async function handleMessage() {
-    if (!user) { router.push('/sign-in'); return; }
-    setMessaging(true);
-    try {
-      const targetSnap = await getDoc(doc(db, 'users', id));
-      const targetData = targetSnap.data();
-      const convId = await getOrCreateConversation(
-        user.uid, id,
-        { [user.uid]: user.displayName ?? 'Me', [id]: targetData?.name ?? 'User' },
-        { [user.uid]: user.photoURL ?? '', [id]: targetData?.photoURL ?? '' }
-      );
-      router.push(`/messages/${convId}`);
-    } finally { setMessaging(false); }
   }
 
   if (loading) return <div className="max-w-3xl mx-auto px-4 py-10"><div className="card animate-pulse h-64" /></div>;
@@ -107,11 +91,14 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
+            {user && user.uid === id && (
+              <div className="mt-4">
+                <Link href="/dashboard" className="btn-secondary text-sm">✏️ Edit Profile</Link>
+              </div>
+            )}
             {user && user.uid !== id && (
-              <div className="flex gap-2 mt-4">
-                <button onClick={handleMessage} disabled={messaging} className="btn-primary text-sm">
-                  {messaging ? 'Opening chat…' : '💬 Send Message'}
-                </button>
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <ConnectButton targetUid={id} targetName={profile.name} targetPhoto={profile.photoURL} size="md" />
                 <button onClick={handleFollowToggle} disabled={followBusy} className="btn-secondary text-sm">
                   {following ? '✓ Following' : '➕ Follow'}
                 </button>

@@ -3,14 +3,21 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { logout } from '@/lib/auth';
+import { getPendingRequests } from '@/lib/firestore';
 
 export default function Navbar() {
   const { user, accountType, isAdmin } = useAuth();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) { setPendingCount(0); return; }
+    getPendingRequests(user.uid).then((r) => setPendingCount(r.length)).catch(() => {});
+  }, [user]);
 
   async function handleLogout() {
     await logout();
@@ -38,6 +45,14 @@ export default function Navbar() {
             <Link href="/jobs" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-pink-100 font-bold transition-colors rounded-full text-sm">
               Job Listings
             </Link>
+            {user && (
+              <Link href="/discover" className="relative px-4 py-2 text-slate-700 hover:text-ink hover:bg-primary-100 font-bold transition-colors rounded-full text-sm">
+                Discover
+                {pendingCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold text-white">{pendingCount}</span>
+                )}
+              </Link>
+            )}
             {user && (
               <Link href="/feed" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-acid-200 font-bold transition-colors rounded-full text-sm">
                 Feed
