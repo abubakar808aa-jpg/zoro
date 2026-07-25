@@ -26,3 +26,27 @@ jobs:
             -H 'Content-Type: application/json' --max-time 290)
           echo "HTTP $code"; cat /tmp/out.json
           test "$code" = "200"
+
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh curated news feeds
+        env:
+          # https://<your-domain>/api/ingest/news — derived from INGEST_RUN_URL if unset.
+          NEWS_URL: ${{ secrets.INGEST_NEWS_URL }}
+          INGEST_URL: ${{ secrets.INGEST_RUN_URL }}
+          INGESTION_SECRET: ${{ secrets.INGESTION_SECRET }}
+        run: |
+          URL="$NEWS_URL"
+          if [ -z "$URL" ] && [ -n "$INGEST_URL" ]; then
+            URL="${INGEST_URL%/api/ingest/run}/api/ingest/news"
+          fi
+          if [ -z "$URL" ] || [ -z "$INGESTION_SECRET" ]; then
+            echo "News ingest URL / INGESTION_SECRET secrets not set — skipping."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/news.json -w '%{http_code}' -X POST "$URL" \
+            -H "Authorization: Bearer $INGESTION_SECRET" \
+            -H 'Content-Type: application/json' --max-time 290)
+          echo "HTTP $code"; cat /tmp/news.json
+          test "$code" = "200"
