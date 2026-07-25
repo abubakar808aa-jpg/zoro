@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { getProfile, getOrCreateConversation, followUser, unfollowUser, isFollowing, getFollowerCount } from '@/lib/firestore';
+import Link from 'next/link';
+import { getProfile, followUser, unfollowUser, isFollowing, getFollowerCount, getUserPosts, hasLiked } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { GigProfile, ProfessionalProfile } from '@jobman/shared/src/types';
+import ConnectButton from '@/components/ConnectButton';
+import PostCard from '@/components/PostCard';
+import PostComposer from '@/components/PostComposer';
+import type { GigProfile, ProfessionalProfile, Post } from '@jobman/shared/src/types';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -15,15 +17,35 @@ export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [messaging, setMessaging] = useState(false);
   const [following, setFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followBusy, setFollowBusy] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     getProfile(id).then(setProfile).finally(() => setLoading(false));
     getFollowerCount(id).then(setFollowerCount).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    setPostsLoading(true);
+    getUserPosts(id)
+      .then(({ posts }) => setPosts(posts))
+      .finally(() => setPostsLoading(false));
+  }, [id]);
+
+  // Resolve which of the loaded posts the viewer has already liked.
+  useEffect(() => {
+    if (!user || posts.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(posts.map(async (p) => [p.id, await hasLiked(p.id, user.uid).catch(() => false)] as const));
+      if (!cancelled) setLikedMap(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [user, posts]);
 
   useEffect(() => {
     if (user && user.uid !== id) {
@@ -50,21 +72,6 @@ export default function ProfilePage() {
     } finally {
       setFollowBusy(false);
     }
-  }
-
-  async function handleMessage() {
-    if (!user) { router.push('/sign-in'); return; }
-    setMessaging(true);
-    try {
-      const targetSnap = await getDoc(doc(db, 'users', id));
-      const targetData = targetSnap.data();
-      const convId = await getOrCreateConversation(
-        user.uid, id,
-        { [user.uid]: user.displayName ?? 'Me', [id]: targetData?.name ?? 'User' },
-        { [user.uid]: user.photoURL ?? '', [id]: targetData?.photoURL ?? '' }
-      );
-      router.push(`/messages/${convId}`);
-    } finally { setMessaging(false); }
   }
 
   if (loading) return <div className="max-w-3xl mx-auto px-4 py-10"><div className="card animate-pulse h-64" /></div>;
@@ -107,11 +114,14 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
+            {user && user.uid === id && (
+              <div className="mt-4">
+                <Link href="/dashboard" className="btn-secondary text-sm">✏️ Edit Profile</Link>
+              </div>
+            )}
             {user && user.uid !== id && (
-              <div className="flex gap-2 mt-4">
-                <button onClick={handleMessage} disabled={messaging} className="btn-primary text-sm">
-                  {messaging ? 'Opening chat…' : '💬 Send Message'}
-                </button>
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <ConnectButton targetUid={id} targetName={profile.name} targetPhoto={profile.photoURL} size="md" />
                 <button onClick={handleFollowToggle} disabled={followBusy} className="btn-secondary text-sm">
                   {following ? '✓ Following' : '➕ Follow'}
                 </button>
@@ -179,6 +189,35 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Posts by this user, newest first. Own profile gets a composer. */}
+      <div className="space-y-4">
+        <h2 className="font-display text-xl font-bold text-ink">
+          {user?.uid === id ? 'Your posts' : `${profile.name.split(' ')[0]}’s posts`}
+        </h2>
+        {user?.uid === id && (
+          <PostComposer
+            headline={isGig ? gig.category : pro.title}
+            onPosted={(p) => setPosts((prev) => [p, ...prev])}
+          />
+        )}
+        {postsLoading ? (
+          <div className="card h-28 animate-pulse bg-slate-100" />
+        ) : posts.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            {user?.uid === id ? 'You haven’t posted yet — say something above.' : 'No posts yet.'}
+          </p>
+        ) : (
+          posts.map((p) => (
+            <PostCard
+              key={p.id}
+              post={p}
+              initialLiked={likedMap[p.id] ?? false}
+              onDeleted={(pid) => setPosts((prev) => prev.filter((x) => x.id !== pid))}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

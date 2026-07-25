@@ -96,5 +96,88 @@ service cloud.firestore {
       // Only staff can browse reports; resolution happens server-side.
       allow read: if isAdmin();
     }
+    // Raw provider payloads — server-only/debug-only. Never exposed to clients;
+    // the ingestion route writes these through the Admin SDK, which bypasses rules.
+    match /jobRaw/{id} {
+      allow read, write: if false;
+    }
+    // Ingestion telemetry — staff-readable, written only server-side.
+    match /ingestionRuns/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /sourceFetchLogs/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // A user's saved/bookmarked jobs — private to the owner. Doc id is
+    // `${uid}_${jobId}` and the doc carries uid.
+    match /savedJobs/{id} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.jobId is string;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+    }
+    // Mutual connections (request → accept/decline). Doc id is the sorted uid
+    // pair and both users are listed in `participants`.
+    match /connections/{id} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      // Only the requester may open a request, naming themselves, listing both
+      // participants, and starting in the pending state.
+      allow create: if request.auth != null
+        && request.resource.data.requesterId == request.auth.uid
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.status == 'pending';
+      // Only the recipient may respond, and only by flipping status (with a
+      // respondedAt) to accepted or declined.
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.recipientId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt'])
+        && request.resource.data.status in ['accepted', 'declined'];
+      // Either participant can withdraw or remove the connection.
+      allow delete: if request.auth != null && request.auth.uid in resource.data.participants;
+    }
+    // User-authored posts. Public to read; authored writes; likeCount/commentCount
+    // are bumpable by any signed-in user by exactly ±1 (same exception pattern as
+    // jobs.applicantCount).
+    match /posts/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.likeCount == 0
+        && request.resource.data.commentCount == 0;
+      allow update: if request.auth != null
+        && (
+          (request.auth.uid == resource.data.authorId
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['authorId', 'likeCount', 'commentCount', 'createdAt']))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+              && (request.resource.data.likeCount == resource.data.likeCount + 1
+                  || request.resource.data.likeCount == resource.data.likeCount - 1))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+              && request.resource.data.commentCount == resource.data.commentCount + 1)
+        );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && request.resource.data.authorId == request.auth.uid;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      }
+      // One like per user; the doc id is the liker's uid so a user can like once.
+      match /likes/{uid} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.uid == uid;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+    // Curated news — public read, written only server-side via the Admin SDK.
+    match /news/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

@@ -3,6 +3,17 @@
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
+import { jobFreshness, SOURCE_LABELS } from '@/lib/freshness';
+
+const FRESHNESS_STYLE: Record<string, string> = {
+  new: 'bg-acid-300 text-ink',
+  live: 'bg-green-100 text-green-700',
+  checked: 'bg-slate-100 text-slate-500',
+  stale: 'bg-amber-100 text-amber-700',
+  closed: 'bg-red-100 text-red-600',
+};
+
+const REMOTE_LABEL: Record<string, string> = { remote: '🏠 Remote', hybrid: '🔀 Hybrid', onsite: '📍 On-site' };
 
 export default function JobCard({ job, featured = false }: { job: JobListing; featured?: boolean }) {
   const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
@@ -15,6 +26,8 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
   };
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
+  const fresh = jobFreshness(job);
+  const remoteLabel = job.remoteType ? REMOTE_LABEL[job.remoteType] : (job.remote ? '🏠 Remote OK' : '');
 
   return (
     <Link href={`/jobs/${job.id}`} className={`block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`}>
@@ -31,7 +44,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
           <div className="flex-1 min-w-0">
             <h3 className="font-display font-bold text-ink text-lg leading-tight group-hover:text-primary-600 transition-colors">{job.title}</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              🏢 {job.postedByName} · 📍 {job.location}{job.remote ? ' · 🏠 Remote OK' : ''}
+              🏢 {job.companyName ?? job.postedByName} · {job.location}{remoteLabel ? ` · ${remoteLabel}` : ''}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -63,9 +76,16 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
-          <span>{job.isImported ? `↗ ${job.sourceProvider} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
-          <span>{posted}</span>
+        <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
+          <div className="flex items-center gap-2 min-w-0">
+            {job.isImported ? (
+              <span className="badge bg-slate-100 text-slate-600 text-xs">via {SOURCE_LABELS[job.sourceProvider ?? ''] ?? 'source'}</span>
+            ) : (
+              <span>👥 {job.applicantCount} applicant{job.applicantCount !== 1 ? 's' : ''}</span>
+            )}
+            {fresh && <span className={`badge text-xs ${FRESHNESS_STYLE[fresh.tone]}`}>{fresh.label}</span>}
+          </div>
+          <span className="flex-shrink-0">{posted}</span>
         </div>
       </div>
     </Link>

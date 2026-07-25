@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
+      - name: Unit tests (ingestion normalization)
+        run: yarn test:unit
+
       - name: Build web app
         run: yarn build:web
         # The Firebase web config now comes from the environment (not source).

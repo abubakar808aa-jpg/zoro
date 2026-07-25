@@ -231,3 +231,182 @@ describe('reports', () => {
     await assertSucceeds(getDoc(doc(db('boss'), 'reports/r1')));
   });
 });
+
+// ── job-discovery data layer ────────────────────────────────────────────────
+describe('imported jobs (read-only to clients)', () => {
+  const imported = {
+    title: 'Staff Engineer', postedBy: 'jobman-import', postedByName: 'Acme',
+    status: 'open', applicantCount: 0, type: 'fulltime', isImported: true,
+    applyUrl: 'https://acme.example/apply', sourceProvider: 'greenhouse',
+  };
+
+  test('anyone can read imported jobs', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertSucceeds(getDoc(doc(db('alice'), 'jobs/greenhouse_acme_1')));
+  });
+
+  test('clients cannot edit an imported job', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertFails(updateDoc(doc(db('alice'), 'jobs/greenhouse_acme_1'), { title: 'Hacked' }));
+  });
+
+  test('clients cannot even bump applicantCount on an imported job', async () => {
+    await seed('jobs/greenhouse_acme_1', imported);
+    await assertFails(updateDoc(doc(db('alice'), 'jobs/greenhouse_acme_1'), { applicantCount: 1 }));
+  });
+
+  test('clients cannot forge isImported on their own job at create', async () => {
+    await assertFails(setDoc(doc(db('emp'), 'jobs/j9'), {
+      title: 'Fake', postedBy: 'emp', status: 'open', applicantCount: 0, type: 'fulltime', isImported: true,
+    }));
+  });
+});
+
+describe('jobRaw (server-only)', () => {
+  test('clients cannot read or write raw provider payloads', async () => {
+    await seed('jobRaw/greenhouse_acme_1', { provider: 'greenhouse', raw: { secret: 'x' } });
+    await assertFails(getDoc(doc(db('alice'), 'jobRaw/greenhouse_acme_1')));
+    await assertFails(setDoc(doc(db('alice'), 'jobRaw/x'), { raw: {} }));
+  });
+});
+
+describe('ingestion telemetry (admin-read, server-write)', () => {
+  test('non-admins cannot read runs/logs; admins can; clients cannot write', async () => {
+    await seed('ingestionRuns/r1', { trigger: 'schedule', jobsCreated: 3 });
+    await seed('sourceFetchLogs/l1', { provider: 'lever', responseStatus: 'ok' });
+    await seed('users/boss', { uid: 'boss', name: 'Boss', accountType: 'employer', isAdmin: true });
+    await assertFails(getDoc(doc(db('bob'), 'ingestionRuns/r1')));
+    await assertSucceeds(getDoc(doc(db('boss'), 'ingestionRuns/r1')));
+    await assertFails(getDoc(doc(db('bob'), 'sourceFetchLogs/l1')));
+    await assertSucceeds(getDoc(doc(db('boss'), 'sourceFetchLogs/l1')));
+    await assertFails(setDoc(doc(db('boss'), 'ingestionRuns/r2'), { trigger: 'manual' }));
+  });
+});
+
+describe('savedJobs (owner-only)', () => {
+  const saved = { uid: 'alice', jobId: 'greenhouse_acme_1', jobTitle: 'Staff Engineer', companyName: 'Acme' };
+
+  test('a user can save, read, and unsave their own bookmark', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1'), saved));
+    await assertSucceeds(getDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1')));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'savedJobs/alice_greenhouse_acme_1')));
+  });
+
+  test('cannot save as someone else, nor read their bookmarks', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'savedJobs/alice_greenhouse_acme_1'), saved));
+    await seed('savedJobs/alice_greenhouse_acme_1', saved);
+    await assertFails(getDoc(doc(db('mallory'), 'savedJobs/alice_greenhouse_acme_1')));
+  });
+});
+
+// ── connections: mutual request → accept/decline ────────────────────────────
+describe('connections', () => {
+  // Doc id is the sorted uid pair; alice_bob for ('alice','bob').
+  const pending = {
+    participants: ['alice', 'bob'], requesterId: 'alice', recipientId: 'bob', status: 'pending',
+  };
+
+  test('requester can open a pending request naming themselves', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'connections/alice_bob'), pending));
+  });
+
+  test('cannot open a request on behalf of someone else', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'connections/alice_bob'), pending));
+  });
+
+  test('cannot create a request that is already accepted', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'connections/alice_bob'), { ...pending, status: 'accepted' }));
+  });
+
+  test('only participants can read a connection', async () => {
+    await seed('connections/alice_bob', pending);
+    await assertSucceeds(getDoc(doc(db('bob'), 'connections/alice_bob')));
+    await assertFails(getDoc(doc(db('mallory'), 'connections/alice_bob')));
+  });
+
+  test('recipient can accept; requester cannot accept their own request', async () => {
+    await seed('connections/alice_bob', pending);
+    await assertSucceeds(updateDoc(doc(db('bob'), 'connections/alice_bob'), { status: 'accepted', respondedAt: new Date() }));
+    await seed('connections/alice_bob', pending);
+    await assertFails(updateDoc(doc(db('alice'), 'connections/alice_bob'), { status: 'accepted' }));
+  });
+
+  test('cannot change fields other than status/respondedAt when responding', async () => {
+    await seed('connections/alice_bob', pending);
+    await assertFails(updateDoc(doc(db('bob'), 'connections/alice_bob'), { status: 'accepted', requesterId: 'bob' }));
+  });
+
+  test('either participant can delete the connection', async () => {
+    await seed('connections/alice_bob', pending);
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'connections/alice_bob')));
+    await seed('connections/alice_bob', pending);
+    await assertFails(deleteDoc(doc(db('mallory'), 'connections/alice_bob')));
+  });
+});
+
+// ── posts: public read, authored write, ±1 counter exception ────────────────
+describe('posts, likes & comments', () => {
+  const post = {
+    authorId: 'alice', authorName: 'Alice', text: 'hello world', likeCount: 0, commentCount: 0,
+  };
+
+  test('anyone can read posts; author can create their own', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'posts/p1'), post));
+    await assertSucceeds(getDoc(doc(db('bob'), 'posts/p1')));
+  });
+
+  test('cannot create a post as someone else or with a nonzero like count', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'posts/p1'), { ...post, authorId: 'alice' }));
+    await assertFails(setDoc(doc(db('alice'), 'posts/p1'), { ...post, likeCount: 5 }));
+  });
+
+  test('author can edit their own text but not the counters', async () => {
+    await seed('posts/p1', post);
+    await assertSucceeds(updateDoc(doc(db('alice'), 'posts/p1'), { text: 'edited' }));
+    await assertFails(updateDoc(doc(db('alice'), 'posts/p1'), { likeCount: 100 }));
+  });
+
+  test('any signed-in user can bump likeCount by exactly ±1', async () => {
+    await seed('posts/p1', post);
+    await assertSucceeds(updateDoc(doc(db('bob'), 'posts/p1'), { likeCount: 1 }));
+    await seed('posts/p1', { ...post, likeCount: 1 });
+    await assertSucceeds(updateDoc(doc(db('bob'), 'posts/p1'), { likeCount: 0 }));
+    await seed('posts/p1', post);
+    await assertFails(updateDoc(doc(db('bob'), 'posts/p1'), { likeCount: 3 }));
+  });
+
+  test('commentCount can only be bumped up by one', async () => {
+    await seed('posts/p1', post);
+    await assertSucceeds(updateDoc(doc(db('bob'), 'posts/p1'), { commentCount: 1 }));
+    await seed('posts/p1', post);
+    await assertFails(updateDoc(doc(db('bob'), 'posts/p1'), { commentCount: 2 }));
+  });
+
+  test('only the author can delete their post', async () => {
+    await seed('posts/p1', post);
+    await assertFails(deleteDoc(doc(db('mallory'), 'posts/p1')));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'posts/p1')));
+  });
+
+  test('a user can like once under their own uid, not another', async () => {
+    await seed('posts/p1', post);
+    await assertSucceeds(setDoc(doc(db('bob'), 'posts/p1/likes/bob'), { uid: 'bob' }));
+    await assertFails(setDoc(doc(db('bob'), 'posts/p1/likes/carol'), { uid: 'carol' }));
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'posts/p1/likes/bob')));
+  });
+
+  test('comments are author-written and publicly readable', async () => {
+    await seed('posts/p1', post);
+    await assertSucceeds(addDoc(collection(db('bob'), 'posts/p1/comments'), { authorId: 'bob', text: 'nice' }));
+    await assertFails(addDoc(collection(db('bob'), 'posts/p1/comments'), { authorId: 'mallory', text: 'spoof' }));
+  });
+});
+
+// ── news: public read, server-only write ────────────────────────────────────
+describe('news (public read, server-only write)', () => {
+  test('anyone can read news; nobody can write from a client', async () => {
+    await seed('news/n1', { title: 'Hiring is up', source: 'Example', url: 'https://x.example/a' });
+    await assertSucceeds(getDoc(doc(db('alice'), 'news/n1')));
+    await assertFails(setDoc(doc(db('alice'), 'news/n2'), { title: 'fake' }));
+  });
+});

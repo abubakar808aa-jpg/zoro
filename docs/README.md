@@ -1,6 +1,8 @@
 # JobMan documentation
 
+- [Job-discovery data layer](job-discovery-data-layer.md) — normalized job model, deduplication, ingestion scheduling, freshness/lifecycle, and search.
 - [Greenhouse ingestion](greenhouse-ingestion.md) — configure and run the public Greenhouse board connector.
 - [Job-board connectors](job-board-connectors.md) — Lever, Ashby, and SmartRecruiters configuration and operating guidance.
+- [News feed](news-feed.md) — curated RSS/Atom news in the feed: sources, parsing, ingestion, and scheduling.
 - [Firebase setup](../SETUP.md) — Firebase project, web/mobile configuration, and security-rule deployment.
 - [Launch checklist](../NEXT-STEPS.md) — manual end-to-end product verification and deployment checks.

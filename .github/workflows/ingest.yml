@@ -1,0 +1,52 @@
+name: Job ingestion
+
+# Runs the scheduler every 2 hours; each source is only actually fetched when
+# it's due (priority sources every 2–4h, normal every 6–12h — enforced by
+# nextFetchAt in /api/ingest/run). Also runnable on demand.
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingestion run
+        env:
+          INGEST_URL: ${{ secrets.INGEST_RUN_URL }}       # https://<your-domain>/api/ingest/run
+          INGESTION_SECRET: ${{ secrets.INGESTION_SECRET }}
+        run: |
+          if [ -z "$INGEST_URL" ] || [ -z "$INGESTION_SECRET" ]; then
+            echo "INGEST_RUN_URL / INGESTION_SECRET secrets not set — skipping."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "$INGEST_URL" \
+            -H "Authorization: Bearer $INGESTION_SECRET" \
+            -H 'Content-Type: application/json' --max-time 290)
+          echo "HTTP $code"; cat /tmp/out.json
+          test "$code" = "200"
+
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh curated news feeds
+        env:
+          # https://<your-domain>/api/ingest/news — derived from INGEST_RUN_URL if unset.
+          NEWS_URL: ${{ secrets.INGEST_NEWS_URL }}
+          INGEST_URL: ${{ secrets.INGEST_RUN_URL }}
+          INGESTION_SECRET: ${{ secrets.INGESTION_SECRET }}
+        run: |
+          URL="$NEWS_URL"
+          if [ -z "$URL" ] && [ -n "$INGEST_URL" ]; then
+            URL="${INGEST_URL%/api/ingest/run}/api/ingest/news"
+          fi
+          if [ -z "$URL" ] || [ -z "$INGESTION_SECRET" ]; then
+            echo "News ingest URL / INGESTION_SECRET secrets not set — skipping."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/news.json -w '%{http_code}' -X POST "$URL" \
+            -H "Authorization: Bearer $INGESTION_SECRET" \
+            -H 'Content-Type: application/json' --max-time 290)
+          echo "HTTP $code"; cat /tmp/news.json
+          test "$code" = "200"
