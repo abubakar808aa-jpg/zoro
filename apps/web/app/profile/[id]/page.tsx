@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getProfile, followUser, unfollowUser, isFollowing, getFollowerCount } from '@/lib/firestore';
+import { getProfile, followUser, unfollowUser, isFollowing, getFollowerCount, getUserPosts, hasLiked } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
 import ConnectButton from '@/components/ConnectButton';
-import type { GigProfile, ProfessionalProfile } from '@jobman/shared/src/types';
+import PostCard from '@/components/PostCard';
+import PostComposer from '@/components/PostComposer';
+import type { GigProfile, ProfessionalProfile, Post } from '@jobman/shared/src/types';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -18,11 +20,32 @@ export default function ProfilePage() {
   const [following, setFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followBusy, setFollowBusy] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     getProfile(id).then(setProfile).finally(() => setLoading(false));
     getFollowerCount(id).then(setFollowerCount).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    setPostsLoading(true);
+    getUserPosts(id)
+      .then(({ posts }) => setPosts(posts))
+      .finally(() => setPostsLoading(false));
+  }, [id]);
+
+  // Resolve which of the loaded posts the viewer has already liked.
+  useEffect(() => {
+    if (!user || posts.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(posts.map(async (p) => [p.id, await hasLiked(p.id, user.uid).catch(() => false)] as const));
+      if (!cancelled) setLikedMap(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [user, posts]);
 
   useEffect(() => {
     if (user && user.uid !== id) {
@@ -166,6 +189,35 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Posts by this user, newest first. Own profile gets a composer. */}
+      <div className="space-y-4">
+        <h2 className="font-display text-xl font-bold text-ink">
+          {user?.uid === id ? 'Your posts' : `${profile.name.split(' ')[0]}’s posts`}
+        </h2>
+        {user?.uid === id && (
+          <PostComposer
+            headline={isGig ? gig.category : pro.title}
+            onPosted={(p) => setPosts((prev) => [p, ...prev])}
+          />
+        )}
+        {postsLoading ? (
+          <div className="card h-28 animate-pulse bg-slate-100" />
+        ) : posts.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            {user?.uid === id ? 'You haven’t posted yet — say something above.' : 'No posts yet.'}
+          </p>
+        ) : (
+          posts.map((p) => (
+            <PostCard
+              key={p.id}
+              post={p}
+              initialLiked={likedMap[p.id] ?? false}
+              onDeleted={(pid) => setPosts((prev) => prev.filter((x) => x.id !== pid))}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
