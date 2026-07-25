@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { GIG_CATEGORIES, PROFESSIONAL_CATEGORIES } from '@jobman/shared/src/constants/categories';
+import { Reveal } from '../components/motion/Reveal';
 
 const floatingSignals = [
   { text: 'Product Designer', top: '18%', left: '8%', color: 'bg-acid-300', drift: 0.7 },
@@ -16,32 +18,41 @@ export default function LandingPage() {
   const [query, setQuery] = useState('');
   const [scrollY, setScrollY] = useState(0);
   const [pointer, setPointer] = useState({ x: 0.5, y: 0.5 });
+  const reduce = useReducedMotion();
 
   useEffect(() => {
+    if (reduce) return;
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [reduce]);
 
   const marqueeItems = [...GIG_CATEGORIES, ...PROFESSIONAL_CATEGORIES].map(c => `${c.icon} ${c.label}`);
-  const heroProgress = Math.min(scrollY / 650, 1);
+
+  // Motion is gated behind the visitor's reduced-motion preference: when set,
+  // pointer parallax, scroll drift, and the idle float all collapse to 0.
+  const px = reduce ? 0.5 : pointer.x;
+  const py = reduce ? 0.5 : pointer.y;
+  const heroProgress = reduce ? 0 : Math.min(scrollY / 650, 1);
+  const auroraScroll = reduce ? 0 : scrollY;
 
   return (
     <div className="overflow-hidden">
       <section
         className="hero-shell relative isolate min-h-[790px] overflow-hidden bg-ink px-4 pb-24 pt-24 text-white sm:px-6 lg:min-h-[820px] lg:pt-32"
         onPointerMove={(event) => {
+          if (reduce) return;
           const rect = event.currentTarget.getBoundingClientRect();
           setPointer({ x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height });
         }}
       >
         <div className="hero-grid absolute inset-0 opacity-40" />
-        <div className="hero-aurora hero-aurora-one" style={{ transform: `translate(${(pointer.x - 0.5) * 22}px, ${(pointer.y - 0.5) * 22}px)` }} />
-        <div className="hero-aurora hero-aurora-two" style={{ transform: `translate(${(pointer.x - 0.5) * -30}px, ${(pointer.y - 0.5) * -20}px)` }} />
-        <div className="hero-aurora hero-aurora-three" style={{ transform: `translate(${(pointer.x - 0.5) * 18}px, ${(pointer.y - 0.5) * -18}px)` }} />
+        <div className="hero-aurora hero-aurora-one" style={{ transform: `translate(${(px - 0.5) * 22}px, ${(py - 0.5) * 22 + auroraScroll * 0.12}px)` }} />
+        <div className="hero-aurora hero-aurora-two" style={{ transform: `translate(${(px - 0.5) * -30}px, ${(py - 0.5) * -20 - auroraScroll * 0.08}px)` }} />
+        <div className="hero-aurora hero-aurora-three" style={{ transform: `translate(${(px - 0.5) * 18}px, ${(py - 0.5) * -18 + auroraScroll * 0.05}px)` }} />
 
-        {floatingSignals.map((signal) => (
+        {floatingSignals.map((signal, index) => (
           <div
             aria-hidden="true"
             className={`signal-chip absolute hidden rounded-full border border-ink/10 px-4 py-2 text-sm font-bold text-ink shadow-lg md:block ${signal.color}`}
@@ -49,10 +60,14 @@ export default function LandingPage() {
             style={{
               top: signal.top,
               left: signal.left,
-              transform: `translate(${(pointer.x - 0.5) * signal.drift * 36}px, ${(pointer.y - 0.5) * signal.drift * 28 + heroProgress * 90}px) rotate(${heroProgress * (signal.drift - 1) * 16}deg)`,
+              transform: `translate(${(px - 0.5) * signal.drift * 36}px, ${(py - 0.5) * signal.drift * 28 + heroProgress * 90}px) rotate(${heroProgress * (signal.drift - 1) * 16}deg)`,
             }}
           >
-            <span className="mr-2 text-xs">✦</span>{signal.text}
+            {/* Inner span carries the idle float so it never fights the outer
+                pointer/scroll transform. Staggered so the pills breathe out of sync. */}
+            <span className="inline-flex items-center animate-float" style={{ animationDelay: `${index * 0.6}s` }}>
+              <span className="mr-2 text-xs">✦</span>{signal.text}
+            </span>
           </div>
         ))}
 
@@ -81,8 +96,8 @@ export default function LandingPage() {
                 aria-label="Search jobs"
               />
             </label>
-            <button type="submit" className="rounded-2xl bg-acid-300 px-7 py-4 font-bold text-ink transition-transform hover:-translate-y-0.5 active:translate-y-0">
-              Find my next flex <span aria-hidden="true">→</span>
+            <button type="submit" className="cta-lime">
+              Find my next flex <span aria-hidden="true" className="btn-arrow">→</span>
             </button>
           </form>
           <p className="mt-4 text-sm text-white/45">Try “product designer” or “electrician near me” — we don&apos;t judge the plot twists.</p>
@@ -92,7 +107,7 @@ export default function LandingPage() {
       </section>
 
       <section className="relative z-10 -mt-10 px-4 sm:px-6">
-        <div className="mx-auto grid max-w-6xl gap-3 rounded-[2rem] border border-slate-200 bg-white p-3 shadow-[0_24px_70px_rgba(30,16,51,0.12)] md:grid-cols-3">
+        <Reveal className="mx-auto grid max-w-6xl gap-3 rounded-[2rem] border border-slate-200 bg-white p-3 shadow-[0_24px_70px_rgba(30,16,51,0.12)] md:grid-cols-3">
           {[
             ['Fresh drops', 'Roles found in the last 24 hours', '✦', 'bg-primary-50'],
             ['Original links', 'Apply where the employer lives', '↗', 'bg-pink-50'],
@@ -103,31 +118,33 @@ export default function LandingPage() {
               <div><p className="font-display font-bold text-ink">{title}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{copy}</p></div>
             </div>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       <section className="relative px-4 py-28 sm:px-6">
         <div className="motion-line absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-primary-200 to-transparent lg:block" />
         <div className="relative mx-auto max-w-6xl">
-          <div className="max-w-xl">
+          <Reveal className="max-w-xl">
             <p className="eyebrow">DISCOVERY, BUT MAKE IT CIVILISED</p>
             <h2 className="section-title">We did the lurking for you.</h2>
             <p className="section-copy">Job hunting is noisy. JobMan turns the mess into a cleaner, more useful shortlist—so you can spend less time opening tabs and more time opening doors.</p>
-          </div>
+          </Reveal>
 
           <div className="mt-14 grid gap-6 lg:grid-cols-3">
             {[
               ['01', 'Gather the signal', 'Career pages, trusted feeds, and the corners of the internet where good roles like to hide.', '🌐'],
               ['02', 'Cut the chaos', 'Spot duplicate listings, show what matters first, and keep the useful details easy to scan.', '✂️'],
               ['03', 'Send you straight there', 'Find a role you like? Head straight to the original listing. No weird detours. No catfishing.', '↗️'],
-            ].map(([number, title, description, icon]) => (
-              <article key={number} className="story-card group relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm">
-                <div className="absolute right-5 top-5 text-4xl transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">{icon}</div>
-                <span className="text-xs font-bold tracking-[0.18em] text-primary-600">{number}</span>
-                <h3 className="mt-12 font-display text-2xl font-bold tracking-tight text-ink">{title}</h3>
-                <p className="mt-3 leading-relaxed text-slate-600">{description}</p>
-                <div className="mt-8 h-1.5 w-16 rounded-full bg-acid-300 transition-all duration-500 group-hover:w-full" />
-              </article>
+            ].map(([number, title, description, icon], index) => (
+              <Reveal key={number} delay={index * 0.1}>
+                <article className="story-card group relative h-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm">
+                  <div className="absolute right-5 top-5 text-4xl transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">{icon}</div>
+                  <span className="text-xs font-bold tracking-[0.18em] text-primary-600">{number}</span>
+                  <h3 className="mt-12 font-display text-2xl font-bold tracking-tight text-ink">{title}</h3>
+                  <p className="mt-3 leading-relaxed text-slate-600">{description}</p>
+                  <div className="mt-8 h-1.5 w-16 rounded-full bg-acid-300 transition-all duration-500 group-hover:w-full" />
+                </article>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -136,7 +153,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden bg-[#f4efff] px-4 py-28 sm:px-6">
         <div className="absolute -right-20 top-20 h-80 w-80 rounded-full bg-accent-400/15 blur-3xl" />
         <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
+          <Reveal>
             <p className="eyebrow">YOUR TYPE, BUT PROFESSIONALLY</p>
             <h2 className="section-title">Good jobs should feel less like a scavenger hunt.</h2>
             <p className="section-copy">Browse local gigs, full-time roles, and the people who can make the work happen. Big career energy, fewer browser tabs.</p>
@@ -144,15 +161,15 @@ export default function LandingPage() {
               {['Remote', 'Entry-level', 'Great pay', 'Near me'].map((filter) => <button key={filter} className="filter-pill" type="button">{filter} <span>+</span></button>)}
             </div>
             <div className="mt-9 flex flex-wrap gap-4">
-              <Link href="/jobs" className="btn-primary">Explore job listings →</Link>
+              <Link href="/jobs" className="cta-primary">Explore job listings <span aria-hidden="true" className="btn-arrow">→</span></Link>
               <Link href="/gigs" className="btn-secondary">Browse local talent</Link>
             </div>
-          </div>
+          </Reveal>
 
-          <div className="relative mx-auto w-full max-w-xl">
+          <Reveal delay={0.12} className="relative mx-auto w-full max-w-xl">
             <div className="radar-ring radar-ring-one" />
             <div className="radar-ring radar-ring-two" />
-            <div className="relative rounded-[2rem] border border-ink/10 bg-white p-5 shadow-[0_24px_70px_rgba(30,16,51,0.16)] sm:p-7">
+            <div className="featured-card relative rounded-[2rem] border border-ink/10 bg-white p-5 shadow-[0_24px_70px_rgba(30,16,51,0.16)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_34px_90px_rgba(30,16,51,0.22)] sm:p-7">
               <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
                 <div><p className="text-xs font-bold uppercase tracking-widest text-primary-600">Freshly found</p><h3 className="mt-1 font-display text-xl font-bold text-ink">Senior Product Designer</h3><p className="mt-1 text-sm text-slate-500">Northstar Studio · Remote</p></div>
                 <span className="rounded-full bg-acid-200 px-3 py-1.5 text-xs font-bold text-ink">92% fit</span>
@@ -161,11 +178,11 @@ export default function LandingPage() {
               <div className="rounded-2xl bg-primary-50 p-4 text-sm leading-relaxed text-primary-900"><span className="font-bold">Why it&apos;s a match:</span> You&apos;ve got the product, systems, and “make it make sense” energy this role is asking for.</div>
               <button className="mt-5 w-full rounded-xl bg-ink px-5 py-3.5 font-bold text-white transition-transform hover:-translate-y-0.5" type="button">Save this good one <span aria-hidden="true">♡</span></button>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
-      <div className="border-y border-ink bg-acid-300 py-3 overflow-hidden">
+      <div className="marquee-band border-y border-ink bg-acid-300 py-3 overflow-hidden">
         <div className="flex w-max whitespace-nowrap animate-marquee">
           {[...marqueeItems, ...marqueeItems].map((item, index) => <span key={index} className="mx-6 font-display text-sm font-bold text-ink">{item}</span>)}
         </div>
@@ -173,17 +190,19 @@ export default function LandingPage() {
 
       <section className="px-4 py-28 sm:px-6">
         <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <Reveal className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div className="max-w-2xl"><p className="eyebrow">PICK A LANE. OR DON&apos;T.</p><h2 className="section-title">Real work comes in more than one flavour.</h2></div>
             <Link href="/jobs" className="font-bold text-primary-600 hover:text-primary-700">See every listing →</Link>
-          </div>
+          </Reveal>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[...GIG_CATEGORIES.slice(0, 4), ...PROFESSIONAL_CATEGORIES.slice(0, 4)].map((category, index) => (
-              <Link key={category.id} href={index < 4 ? `/gigs?category=${category.id}` : `/professionals?category=${category.id}`} className="category-tile group">
-                <span className="text-4xl transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110">{category.icon}</span>
-                <span className="mt-8 font-display text-lg font-bold text-ink">{category.label}</span>
-                <span className="mt-1 text-sm text-slate-500">Go where your skills are wanted →</span>
-              </Link>
+              <Reveal key={category.id} delay={(index % 4) * 0.06}>
+                <Link href={index < 4 ? `/gigs?category=${category.id}` : `/professionals?category=${category.id}`} className="category-tile group h-full">
+                  <span className="text-4xl transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110">{category.icon}</span>
+                  <span className="mt-8 font-display text-lg font-bold text-ink">{category.label}</span>
+                  <span className="mt-1 text-sm text-slate-500">Go where your skills are wanted →</span>
+                </Link>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -191,13 +210,13 @@ export default function LandingPage() {
 
       <section className="relative overflow-hidden bg-ink px-4 py-28 text-white sm:px-6">
         <div className="hero-grid absolute inset-0 opacity-25" />
-        <div className="hero-aurora hero-aurora-one opacity-50" />
-        <div className="relative mx-auto max-w-3xl text-center">
+        <div className="hero-aurora hero-aurora-one opacity-50" style={{ transform: `translateY(${auroraScroll * -0.04}px)` }} />
+        <Reveal className="relative mx-auto max-w-3xl text-center">
           <span className="inline-flex rounded-full bg-white/10 px-4 py-2 text-xs font-bold tracking-widest text-acid-300">YOUR NEXT ROLE IS NOT HIDING IN ANOTHER TAB</span>
           <h2 className="mt-7 font-display text-4xl font-bold leading-tight tracking-tight sm:text-6xl">Make LinkedIn jealous.<br /><span className="text-acid-300">Respectfully.</span></h2>
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/65">Create a profile, find the good stuff, and get a little closer to work that works for you.</p>
-          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row"><Link href="/sign-up" className="rounded-2xl bg-acid-300 px-7 py-4 font-bold text-ink transition-transform hover:-translate-y-1">Create your free profile →</Link><Link href="/jobs" className="rounded-2xl border border-white/25 bg-white/5 px-7 py-4 font-bold text-white backdrop-blur transition-colors hover:bg-white/10">Browse all jobs</Link></div>
-        </div>
+          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row"><Link href="/sign-up" className="cta-lime">Create your free profile <span aria-hidden="true" className="btn-arrow">→</span></Link><Link href="/jobs" className="cta-ghost">Browse all jobs</Link></div>
+        </Reveal>
       </section>
     </div>
   );
