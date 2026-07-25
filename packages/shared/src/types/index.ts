@@ -14,6 +14,8 @@ export interface User {
   phone?: string;
   location?: string;
   accountType: AccountType;
+  headline?: string;      // short professional tagline for people-search/profile headers
+  industry?: string;      // used by the Find People filters
   isAdmin?: boolean;
   banned?: boolean;
   bannedReason?: string;
@@ -273,10 +275,71 @@ export interface FeedEvent {
 
 export interface Report {
   id: string;
-  targetType: 'job' | 'user' | 'activity';
+  targetType: 'job' | 'user' | 'activity' | 'post';
   targetId: string;
   reporterId: string;
   reason: string;
   resolved?: boolean;
   createdAt: Date;
+}
+
+// ── Connections (mutual, request → accept/decline) ─────────────────────────
+// Follows stay one-way and unchanged; connections are the mutual relationship
+// that gates direct messaging. One document per pair of users, keyed by the
+// two uids sorted so a pair can never create two competing docs.
+
+export type ConnectionStatus = 'pending' | 'accepted' | 'declined';
+
+export interface Connection {
+  id: string;                    // `${uidLow}_${uidHigh}` (sorted pair)
+  participants: string[];        // [uidLow, uidHigh] — array-contains queryable
+  requesterId: string;
+  recipientId: string;
+  status: ConnectionStatus;
+  createdAt: Date;
+  respondedAt?: Date;
+}
+
+// ── Posts (user-authored, with likes + comments) ───────────────────────────
+
+export interface Post {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto?: string;
+  authorHeadline?: string;
+  text: string;
+  imageUrl?: string;
+  likeCount: number;
+  commentCount: number;
+  createdAt: Date;
+}
+
+export interface PostComment {
+  id: string;                    // subcollection posts/{postId}/comments
+  authorId: string;
+  authorName: string;
+  authorPhoto?: string;
+  text: string;
+  createdAt: Date;
+}
+
+export interface PostLike {
+  uid: string;                   // subcollection posts/{postId}/likes/{uid}
+  createdAt: Date;
+}
+
+// ── News (curated RSS; headline + excerpt + source link only) ──────────────
+
+export interface NewsItem {
+  id: string;                    // sha256(url) prefix — dedupes across feeds
+  title: string;
+  excerpt: string;
+  source: string;                // human-readable feed name (e.g. "Remote OK")
+  sourceUrl?: string;            // homepage of the source
+  url: string;                   // canonical link to the original article
+  imageUrl?: string;
+  category?: string;
+  publishedAt: Date;
+  fetchedAt: Date;
 }

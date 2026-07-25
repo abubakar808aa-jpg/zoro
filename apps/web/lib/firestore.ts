@@ -10,6 +10,7 @@ import type {
   JobListing, GigProfile, ProfessionalProfile, Message, Conversation,
   Application, ApplicationStatus, JobStatus,
   Follow, FeedEvent, Report, User, SavedJob,
+  Connection, ConnectionStatus, Post, PostComment, NewsItem,
 } from '@jobman/shared/src/types';
 
 export const JOBS_PAGE_SIZE = 20;
@@ -472,4 +473,218 @@ export function trackOutboundClick(jobId: string) {
   } catch {
     /* analytics must never block the outbound click */
   }
+}
+
+// ── Social: connections (mutual request → accept/decline) ────────────────────
+// One doc per pair, keyed by the two uids sorted. Sorting guarantees both users
+// resolve to the same document id regardless of who initiates, so a pair can
+// never create two competing requests.
+
+function connectionId(a: string, b: string): string {
+  return [a, b].sort().join('_');
+}
+
+export async function sendConnectionRequest(requesterId: string, recipientId: string): Promise<void> {
+  await setDoc(doc(db, 'connections', connectionId(requesterId, recipientId)), {
+    participants: [requesterId, recipientId].sort(),
+    requesterId,
+    recipientId,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function respondToConnection(id: string, status: Extract<ConnectionStatus, 'accepted' | 'declined'>): Promise<void> {
+  await updateDoc(doc(db, 'connections', id), {
+    status,
+    respondedAt: serverTimestamp(),
+  });
+}
+
+export async function removeConnection(a: string, b: string): Promise<void> {
+  await deleteDoc(doc(db, 'connections', connectionId(a, b)));
+}
+
+export async function getConnectionState(a: string, b: string): Promise<Connection | null> {
+  const snap = await getDoc(doc(db, 'connections', connectionId(a, b)));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Connection) : null;
+}
+
+export async function getConnections(uid: string): Promise<Connection[]> {
+  const snap = await getDocs(query(
+    collection(db, 'connections'),
+    where('participants', 'array-contains', uid),
+    where('status', '==', 'accepted'),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Connection));
+}
+
+// Incoming, still-pending requests for `uid` (excludes the ones they sent).
+export async function getPendingRequests(uid: string): Promise<Connection[]> {
+  const snap = await getDocs(query(
+    collection(db, 'connections'),
+    where('participants', 'array-contains', uid),
+    where('status', '==', 'pending'),
+  ));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Connection))
+    .filter(c => c.recipientId === uid);
+}
+
+// The uids this user is connected to — used to build their feed audience.
+export async function getConnectionUids(uid: string): Promise<string[]> {
+  const connections = await getConnections(uid);
+  return connections.map(c => c.participants.find(p => p !== uid)!).filter(Boolean);
+}
+
+// ── Social: posts ────────────────────────────────────────────────────────────
+
+export const POSTS_PAGE_SIZE = 20;
+
+export async function createPost(
+  author: { uid: string; name: string; photoURL?: string; headline?: string },
+  text: string,
+  imageUrl?: string,
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'posts'), {
+    authorId: author.uid,
+    authorName: author.name,
+    authorPhoto: author.photoURL ?? '',
+    authorHeadline: author.headline ?? '',
+    text,
+    imageUrl: imageUrl ?? '',
+    likeCount: 0,
+    commentCount: 0,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function deletePost(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'posts', id));
+}
+
+export async function getUserPosts(
+  uid: string,
+  cursor?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<{ posts: Post[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const constraints: any[] = [where('authorId', '==', uid), orderBy('createdAt', 'desc')];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(POSTS_PAGE_SIZE));
+  const snap = await getDocs(query(collection(db, 'posts'), ...constraints));
+  return {
+    posts: snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)),
+    lastDoc: snap.docs.length === POSTS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+// The public post stream (newest first), paginated by document cursor.
+export async function getPublicPosts(
+  cursor?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<{ posts: Post[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const constraints: any[] = [orderBy('createdAt', 'desc')];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(POSTS_PAGE_SIZE));
+  const snap = await getDocs(query(collection(db, 'posts'), ...constraints));
+  return {
+    posts: snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)),
+    lastDoc: snap.docs.length === POSTS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+// Posts authored by a specific audience (connections + follows + self). Firestore
+// 'in' allows max 30 values, so the audience is chunked and the results merged.
+export async function getFeedPosts(authorIds: string[]): Promise<Post[]> {
+  const uids = Array.from(new Set(authorIds));
+  if (uids.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
+
+  const results = await Promise.all(chunks.map(chunk =>
+    getDocs(query(
+      collection(db, 'posts'),
+      where('authorId', 'in', chunk),
+      orderBy('createdAt', 'desc'),
+      limit(POSTS_PAGE_SIZE),
+    ))
+  ));
+  const posts = results.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
+  posts.sort((a, b) => {
+    const ta = (a.createdAt as unknown as Timestamp)?.toMillis?.() ?? 0;
+    const tb = (b.createdAt as unknown as Timestamp)?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+  return posts;
+}
+
+export async function toggleLike(postId: string, uid: string): Promise<boolean> {
+  const likeRef = doc(db, 'posts', postId, 'likes', uid);
+  const existing = await getDoc(likeRef);
+  if (existing.exists()) {
+    await deleteDoc(likeRef);
+    await updateDoc(doc(db, 'posts', postId), { likeCount: increment(-1) });
+    return false;
+  }
+  await setDoc(likeRef, { uid, createdAt: serverTimestamp() });
+  await updateDoc(doc(db, 'posts', postId), { likeCount: increment(1) });
+  return true;
+}
+
+export async function hasLiked(postId: string, uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'posts', postId, 'likes', uid));
+  return snap.exists();
+}
+
+export async function addComment(
+  postId: string,
+  author: { uid: string; name: string; photoURL?: string },
+  text: string,
+): Promise<void> {
+  await addDoc(collection(db, 'posts', postId, 'comments'), {
+    authorId: author.uid,
+    authorName: author.name,
+    authorPhoto: author.photoURL ?? '',
+    text,
+    createdAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'posts', postId), { commentCount: increment(1) });
+}
+
+export async function getComments(postId: string): Promise<PostComment[]> {
+  const snap = await getDocs(query(
+    collection(db, 'posts', postId, 'comments'),
+    orderBy('createdAt', 'asc'),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as PostComment));
+}
+
+// ── News (server-ingested; clients read only) ────────────────────────────────
+
+export const NEWS_PAGE_SIZE = 15;
+
+export async function getNewsItems(
+  cursor?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<{ items: NewsItem[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+  const constraints: any[] = [orderBy('publishedAt', 'desc')];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(NEWS_PAGE_SIZE));
+  const snap = await getDocs(query(collection(db, 'news'), ...constraints));
+  return {
+    items: snap.docs.map(d => ({ id: d.id, ...d.data() } as NewsItem)),
+    lastDoc: snap.docs.length === NEWS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+// ── People search (Find People) ──────────────────────────────────────────────
+
+// Loads a window of profiles for client-side filtering by name/skill/role/
+// location/industry — same "use the current database first" approach as job
+// search (getOpenJobsForSearch). Move to a search index only at scale.
+export async function getProfilesForSearch(max = 200): Promise<(GigProfile | ProfessionalProfile)[]> {
+  const snap = await getDocs(query(
+    collection(db, 'profiles'),
+    orderBy('rating', 'desc'),
+    limit(max),
+  ));
+  return snap.docs.map(d => d.data() as GigProfile | ProfessionalProfile);
 }

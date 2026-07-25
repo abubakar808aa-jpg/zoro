@@ -11,6 +11,7 @@ const TARGET_LABEL: Record<Report['targetType'], string> = {
   job: '📋 Job',
   user: '👤 User',
   activity: '📡 Feed post',
+  post: '📝 Post',
 };
 
 export default function AdminReportsPage() {
