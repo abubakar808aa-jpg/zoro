@@ -197,6 +197,16 @@ export interface FeedEvent {
   createdAt: Date;
 }
 
+export interface NewsFeedItem {
+  id: string;
+  kind: 'news';
+  headline: string;
+  excerpt: string;
+  sourceName: string;
+  sourceUrl: string;
+  publishedAt: string;
+}
+
 export interface Report {
   id: string;
   targetType: 'job' | 'user' | 'activity';

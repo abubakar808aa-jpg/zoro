@@ -2,6 +2,23 @@
 
 JobMan normalizes public employer listings into Firestore and links every listing to the employer's original application page. All requests below require the server-side `FIREBASE_SERVICE_ACCOUNT_KEY` and `INGESTION_SECRET` from `apps/web/.env.example`.
 
+## Scheduled production refresh
+
+`GET /api/cron/ingest` is called once per day by Vercel Cron. Vercel sends `CRON_SECRET` in the `Authorization` header, so the endpoint is not public. Every run writes a summary to `ingestionRuns` and one record per connector to `sourceFetchLogs`.
+
+Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are refreshed automatically. The environment value is a JSON array:
+
+```json
+[
+  { "provider": "greenhouse", "sourceKey": "figma", "companyName": "Figma" },
+  { "provider": "lever", "sourceKey": "netflix", "companyName": "Netflix", "region": "global" },
+  { "provider": "ashby", "sourceKey": "ramp", "companyName": "Ramp" },
+  { "provider": "smartrecruiters", "sourceKey": "partner-feed", "companyName": "Partner", "credentialEnvKey": "SMARTRECRUITERS_TOKEN" }
+]
+```
+
+Never place a SmartRecruiters token in Firestore or `CONNECTOR_SOURCES_JSON`; only the environment variable name belongs there.
+
 ## Lever
 
 Lever's public Posting API uses a **site name** (the part after `jobs.lever.co/`). It does not require a provider token.
