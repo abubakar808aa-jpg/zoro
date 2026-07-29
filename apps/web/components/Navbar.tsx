@@ -38,11 +38,12 @@ export default function Navbar() {
             <Link href="/jobs" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-pink-100 font-bold transition-colors rounded-full text-sm">
               Job Listings
             </Link>
-            {user && (
-              <Link href="/feed" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-acid-200 font-bold transition-colors rounded-full text-sm">
-                Feed
-              </Link>
-            )}
+            <Link href="/feed" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-acid-200 font-bold transition-colors rounded-full text-sm">
+              News Feed
+            </Link>
+            <Link href="/people" className="px-4 py-2 text-slate-700 hover:text-ink hover:bg-primary-100 font-bold transition-colors rounded-full text-sm">
+              Find People
+            </Link>
           </div>
 
           {/* Right */}
