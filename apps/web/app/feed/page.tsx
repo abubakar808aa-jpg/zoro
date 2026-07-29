@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import FeedCard from '@/components/FeedCard';
 import Reveal from '@/components/Reveal';
@@ -45,7 +44,6 @@ function NewsCard({ item }: { item: NewsFeedItem }) {
 
 export default function FeedPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [news, setNews] = useState<NewsFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,20 +55,29 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { router.push('/sign-in'); return; }
     loadFeed();
   }, [user, authLoading]);
 
   async function loadFeed() {
-    if (!user) return;
     setLoading(true);
     try {
+      const newsRequest = fetch('/api/feed/news')
+        .then(response => response.ok ? response.json() : { news: [] });
+
+      if (!user) {
+        const newsResponse = await newsRequest;
+        setEvents([]);
+        setFollowingCount(0);
+        setNews(newsResponse.news || []);
+        return;
+      }
+
       const following = await getFollowing(user.uid);
-      setFollowingCount(following.length);
       const [feedEvents, newsResponse] = await Promise.all([
         getFeed(following.map(f => f.followedId), user.uid),
-        fetch('/api/feed/news').then(response => response.ok ? response.json() : { news: [] }),
+        newsRequest,
       ]);
+      setFollowingCount(following.length);
       setEvents(feedEvents);
       setNews(newsResponse.news || []);
     } finally {
@@ -128,7 +135,9 @@ export default function FeedPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-slate-900">Career tea. Zero corporate fog.</h1>
         <p className="text-slate-500 mt-1">
-          Updates from {followingCount} {followingCount === 1 ? 'person' : 'people'} you follow, plus useful career news from the original publishers
+          {user
+            ? `Updates from ${followingCount} ${followingCount === 1 ? 'person' : 'people'} you follow, plus useful career news from the original publishers`
+            : 'Useful job and career news from original publishers. No login wall, no corporate word salad.'}
         </p>
       </div>
 
@@ -136,32 +145,41 @@ export default function FeedPage() {
         <div className="sticker bg-acid-300 mb-5">{notice}</div>
       )}
 
-      {/* Share a tip */}
-      <div className="card !p-5 mb-6">
-        <p className="font-display font-bold text-ink text-sm mb-2">💡 Share a career tip</p>
-        <textarea
-          value={tip}
-          onChange={e => setTip(e.target.value.slice(0, TIP_MAX))}
-          rows={2}
-          className="input resize-none"
-          placeholder="Salary negotiation tricks, interview wins, side hustle ideas…"
-        />
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-slate-400">{tip.length}/{TIP_MAX}</span>
-          <button type="button" onClick={handlePostTip} disabled={posting || !tip.trim()} className="btn-primary text-sm">
-            {posting ? 'Posting…' : 'Post it'}
-          </button>
+      {user ? (
+        <div className="card !p-5 mb-6">
+          <p className="font-display font-bold text-ink text-sm mb-2">💡 Share a career tip</p>
+          <textarea
+            value={tip}
+            onChange={e => setTip(e.target.value.slice(0, TIP_MAX))}
+            rows={2}
+            className="input resize-none"
+            placeholder="Salary negotiation tricks, interview wins, side hustle ideas…"
+          />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-slate-400">{tip.length}/{TIP_MAX}</span>
+            <button type="button" onClick={handlePostTip} disabled={posting || !tip.trim()} className="btn-primary text-sm">
+              {posting ? 'Posting…' : 'Post it'}
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6 flex flex-col gap-4 rounded-3xl border-2 border-ink bg-acid-200/50 p-5 shadow-pop-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-display font-bold text-ink">Got career tea worth sharing?</p>
+            <p className="mt-1 text-sm text-slate-600">Sign in to post tips and follow people whose work passes the vibe check.</p>
+          </div>
+          <Link href="/sign-in" className="btn-primary whitespace-nowrap text-sm">Join the conversation →</Link>
+        </div>
+      )}
 
       {stream.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <div className="text-5xl mb-4">📡</div>
-          <p className="text-lg font-medium">Your feed is quiet.</p>
-          <p className="text-sm mt-1">Follow workers and employers to see their activity here.</p>
+          <p className="text-lg font-medium">The feed is fetching fresh tea.</p>
+          <p className="text-sm mt-1">Check back soon, or meet people while the internet does its thing.</p>
           <div className="flex justify-center gap-2 mt-5">
-            <Link href="/gigs" className="btn-secondary text-sm">Browse Gig Workers</Link>
-            <Link href="/professionals" className="btn-primary text-sm">Browse Professionals</Link>
+            <Link href="/people" className="btn-secondary text-sm">Find People</Link>
+            <Link href="/jobs" className="btn-primary text-sm">Browse Jobs</Link>
           </div>
         </div>
       ) : (
