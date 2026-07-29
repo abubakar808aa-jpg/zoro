@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 type FeedSource = { name: string; url: string };
 
 const DEFAULT_FEEDS: FeedSource[] = [
-  { name: 'U.S. Bureau of Labor Statistics', url: 'https://www.bls.gov/feed/ted.rss' },
+  { name: 'U.S. Bureau of Labor Statistics', url: 'https://www.bls.gov/feed/bls_latest.rss' },
   { name: 'U.S. Department of Labor', url: 'https://blog.dol.gov/feed' },
 ];
 
