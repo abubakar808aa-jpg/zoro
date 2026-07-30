@@ -57,6 +57,18 @@ type SourceRecord = {
   careersUrl?: string;
 };
 
+function omitUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(omitUndefined);
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, omitUndefined(item)]),
+    );
+  }
+  return value;
+}
+
 export async function upsertImportedJobs(jobs: ImportedJob[], source: SourceRecord) {
   const db = getAdminDb();
   const now = FieldValue.serverTimestamp();
@@ -65,7 +77,8 @@ export async function upsertImportedJobs(jobs: ImportedJob[], source: SourceReco
     const batch = db.batch();
     for (const job of jobs.slice(start, start + 400)) {
       const { sourceDocumentId: id, ...jobData } = job;
-      batch.set(db.collection('jobs').doc(id), { ...jobData, createdAt: now, lastSeenAt: now }, { merge: true });
+      const cleanJobData = omitUndefined(jobData) as Record<string, unknown>;
+      batch.set(db.collection('jobs').doc(id), { ...cleanJobData, createdAt: now, lastSeenAt: now }, { merge: true });
     }
     await batch.commit();
   }

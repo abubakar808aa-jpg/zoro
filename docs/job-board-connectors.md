@@ -11,7 +11,7 @@ Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are r
 ```json
 [
   { "provider": "greenhouse", "sourceKey": "figma", "companyName": "Figma" },
-  { "provider": "lever", "sourceKey": "plaid", "companyName": "Plaid", "region": "global" },
+  { "provider": "lever", "sourceKey": "palantir", "companyName": "Palantir", "region": "global" },
   { "provider": "ashby", "sourceKey": "ramp", "companyName": "Ramp" },
   { "provider": "smartrecruiters", "sourceKey": "smartrecruiters", "companyName": "SmartRecruiters" }
 ]

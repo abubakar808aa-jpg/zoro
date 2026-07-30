@@ -20,9 +20,9 @@ const STARTER_SOURCES: ScheduledJobSource[] = [
   },
   {
     provider: 'lever',
-    sourceKey: 'plaid',
-    companyName: 'Plaid',
-    careersUrl: 'https://plaid.com/careers/openings/',
+    sourceKey: 'palantir',
+    companyName: 'Palantir',
+    careersUrl: 'https://www.palantir.com/careers/',
   },
   {
     provider: 'ashby',
