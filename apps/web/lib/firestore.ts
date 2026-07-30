@@ -48,7 +48,6 @@ export async function getJobs(
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
   };
 }
-
 // Boosted jobs are queried separately (not merged into the paginated query):
 // orderBy('boosted') would exclude every job doc that predates the field.
 export async function getBoostedJobs(): Promise<JobListing[]> {

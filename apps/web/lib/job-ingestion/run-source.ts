@@ -51,14 +51,10 @@ export async function runScheduledSource(source: ScheduledJobSource) {
       jobs = await fetchAshbyJobs(common);
       break;
     case 'smartrecruiters': {
-      const credentialName = source.credentialEnvKey || 'SMARTRECRUITERS_TOKEN';
-      const smartToken = process.env[credentialName];
-      if (!smartToken) throw new Error(`${credentialName} is required for SmartRecruiters source ${source.sourceKey}.`);
       jobs = await fetchSmartRecruitersJobs({
         sourceKey: source.sourceKey,
         companyName: source.companyName,
         careersUrl: source.careersUrl,
-        smartToken,
       });
       break;
     }

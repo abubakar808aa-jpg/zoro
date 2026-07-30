@@ -20,15 +20,21 @@ const STARTER_SOURCES: ScheduledJobSource[] = [
   },
   {
     provider: 'lever',
-    sourceKey: 'netflix',
-    companyName: 'Netflix',
-    careersUrl: 'https://jobs.netflix.com/',
+    sourceKey: 'plaid',
+    companyName: 'Plaid',
+    careersUrl: 'https://plaid.com/careers/openings/',
   },
   {
     provider: 'ashby',
     sourceKey: 'ramp',
     companyName: 'Ramp',
     careersUrl: 'https://ramp.com/careers',
+  },
+  {
+    provider: 'smartrecruiters',
+    sourceKey: 'smartrecruiters',
+    companyName: 'SmartRecruiters',
+    careersUrl: 'https://careers.smartrecruiters.com/SmartRecruiters',
   },
 ];
 

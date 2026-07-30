@@ -11,13 +11,11 @@ Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are r
 ```json
 [
   { "provider": "greenhouse", "sourceKey": "figma", "companyName": "Figma" },
-  { "provider": "lever", "sourceKey": "netflix", "companyName": "Netflix", "region": "global" },
+  { "provider": "lever", "sourceKey": "plaid", "companyName": "Plaid", "region": "global" },
   { "provider": "ashby", "sourceKey": "ramp", "companyName": "Ramp" },
-  { "provider": "smartrecruiters", "sourceKey": "partner-feed", "companyName": "Partner", "credentialEnvKey": "SMARTRECRUITERS_TOKEN" }
+  { "provider": "smartrecruiters", "sourceKey": "smartrecruiters", "companyName": "SmartRecruiters" }
 ]
 ```
-
-Never place a SmartRecruiters token in Firestore or `CONNECTOR_SOURCES_JSON`; only the environment variable name belongs there.
 
 ## Lever
 
@@ -53,17 +51,19 @@ curl -X POST https://<your-domain>/api/ingest/ashby \
 
 ## SmartRecruiters
 
-SmartRecruiters' Posting API is a partner/customer feed and requires an `X-SmartToken`. Pass it only in this server-to-server request; JobMan deliberately does not save it in Firestore or return it in an API response. The connector is read-only: it does not mark a SmartRecruiters posting Active, Inactive, or otherwise change the provider's publication state.
+SmartRecruiters' public Posting API uses the company identifier from
+`careers.smartrecruiters.com/<company-identifier>`. Reading public postings does
+not require a provider token. The connector is read-only and keeps the official
+SmartRecruiters application URL on every imported role.
 
 ```bash
 curl -X POST https://<your-domain>/api/ingest/smartrecruiters \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <INGESTION_SECRET>' \
   -d '{
-    "sourceKey": "acme-smartrecruiters",
+    "sourceKey": "Acme",
     "companyName": "Acme",
-    "careersUrl": "https://jobs.smartrecruiters.com/Acme",
-    "smartToken": "<X-SmartToken>"
+    "careersUrl": "https://careers.smartrecruiters.com/Acme"
   }'
 ```
 
