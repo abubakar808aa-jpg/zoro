@@ -49,9 +49,10 @@ export default function JobDetailPage() {
   async function handleApply(e: React.FormEvent) {
     e.preventDefault();
     if (!user) { router.push('/sign-in'); return; }
+    if (!job) return;
     setApplying(true); setError('');
     try {
-      await applyToJob(id, user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter);
+      await applyToJob(job, user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter);
       setApplied(true);
     } catch (err: any) {
       setError(err.message);

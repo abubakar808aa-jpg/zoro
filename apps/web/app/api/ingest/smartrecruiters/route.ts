@@ -6,13 +6,12 @@ import { upsertImportedJobs } from '@/lib/job-ingestion/shared';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-type IngestionRequest = { sourceKey?: string; companyName?: string; careersUrl?: string; smartToken?: string };
+type IngestionRequest = { sourceKey?: string; companyName?: string; careersUrl?: string };
 
 function validateSource(source: IngestionRequest) {
   const sourceKey = source.sourceKey?.trim();
-  const smartToken = source.smartToken?.trim();
-  if (!sourceKey || !smartToken) throw new Error('sourceKey and smartToken are required.');
-  return { sourceKey, smartToken, companyName: source.companyName?.trim() || undefined, careersUrl: source.careersUrl?.trim() || undefined };
+  if (!sourceKey) throw new Error('sourceKey is required.');
+  return { sourceKey, companyName: source.companyName?.trim() || undefined, careersUrl: source.careersUrl?.trim() || undefined };
 }
 
 export async function POST(request: NextRequest) {

@@ -2,6 +2,21 @@
 
 JobMan normalizes public employer listings into Firestore and links every listing to the employer's original application page. All requests below require the server-side `FIREBASE_SERVICE_ACCOUNT_KEY` and `INGESTION_SECRET` from `apps/web/.env.example`.
 
+## Scheduled production refresh
+
+`GET /api/cron/ingest` is called once per day by Vercel Cron. Vercel sends `CRON_SECRET` in the `Authorization` header, so the endpoint is not public. Every run writes a summary to `ingestionRuns` and one record per connector to `sourceFetchLogs`.
+
+Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are refreshed automatically. The environment value is a JSON array:
+
+```json
+[
+  { "provider": "greenhouse", "sourceKey": "figma", "companyName": "Figma" },
+  { "provider": "lever", "sourceKey": "plaid", "companyName": "Plaid", "region": "global" },
+  { "provider": "ashby", "sourceKey": "ramp", "companyName": "Ramp" },
+  { "provider": "smartrecruiters", "sourceKey": "smartrecruiters", "companyName": "SmartRecruiters" }
+]
+```
+
 ## Lever
 
 Lever's public Posting API uses a **site name** (the part after `jobs.lever.co/`). It does not require a provider token.
@@ -36,17 +51,19 @@ curl -X POST https://<your-domain>/api/ingest/ashby \
 
 ## SmartRecruiters
 
-SmartRecruiters' Posting API is a partner/customer feed and requires an `X-SmartToken`. Pass it only in this server-to-server request; JobMan deliberately does not save it in Firestore or return it in an API response. The connector is read-only: it does not mark a SmartRecruiters posting Active, Inactive, or otherwise change the provider's publication state.
+SmartRecruiters' public Posting API uses the company identifier from
+`careers.smartrecruiters.com/<company-identifier>`. Reading public postings does
+not require a provider token. The connector is read-only and keeps the official
+SmartRecruiters application URL on every imported role.
 
 ```bash
 curl -X POST https://<your-domain>/api/ingest/smartrecruiters \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <INGESTION_SECRET>' \
   -d '{
-    "sourceKey": "acme-smartrecruiters",
+    "sourceKey": "Acme",
     "companyName": "Acme",
-    "careersUrl": "https://jobs.smartrecruiters.com/Acme",
-    "smartToken": "<X-SmartToken>"
+    "careersUrl": "https://careers.smartrecruiters.com/Acme"
   }'
 ```
 

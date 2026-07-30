@@ -30,7 +30,7 @@ export default function JobsPage() {
   useEffect(() => {
     setLoading(true);
     getJobs(typeFilter ? { type: typeFilter } : undefined)
-      .then(setJobs)
+      .then(result => setJobs(result.jobs))
       .finally(() => setLoading(false));
   }, [typeFilter]);
 

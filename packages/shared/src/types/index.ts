@@ -14,6 +14,9 @@ export interface User {
   phone?: string;
   location?: string;
   accountType: AccountType;
+  isAdmin?: boolean;
+  banned?: boolean;
+  bannedReason?: string;
   createdAt: Date;
 }
 
@@ -89,6 +92,9 @@ export interface JobListing {
   postedByPhoto?: string;
   status: JobStatus;
   applicantCount: number;
+  boosted?: boolean;
+  boostedUntil?: Date;
+  genZTags?: GenZTag[];
   createdAt: Date;
   // Present only when JobMan indexes a public employer job board. These jobs
   // always route applicants to the employer's original application page.
@@ -113,9 +119,21 @@ export interface JobSource {
   lastError?: string;
 }
 
+export type GenZTag = 'remote-first' | 'flexible' | 'no-degree' | 'side-hustle' | 'mentorship';
+
+export const GEN_Z_TAGS: { id: GenZTag; label: string; emoji: string }[] = [
+  { id: 'remote-first', label: 'Remote-first', emoji: '🌍' },
+  { id: 'flexible', label: 'Flexible hours', emoji: '⏰' },
+  { id: 'no-degree', label: 'No degree required', emoji: '🎓' },
+  { id: 'side-hustle', label: 'Side hustle OK', emoji: '💸' },
+  { id: 'mentorship', label: 'Mentorship offered', emoji: '🌱' },
+];
+
 export interface Application {
   id: string;
   jobId: string;
+  jobTitle: string;
+  jobPostedBy: string;    // uid of the job's poster — used by security rules
   applicantId: string;
   applicantName: string;
   coverLetter: string;
@@ -131,6 +149,7 @@ export interface Conversation {
   lastMessage: string;
   lastMessageAt: Date;
   lastSenderId: string;
+  lastRead?: Record<string, Date>;  // per-participant timestamp of last time they opened the conversation
 }
 
 export interface Message {
@@ -152,5 +171,48 @@ export interface Review {
   reviewerPhoto?: string;
   rating: number;
   comment: string;
+  createdAt: Date;
+}
+
+// ── Social ────────────────────────────────────────────────────────────────
+
+export interface Follow {
+  id: string;           // `${followerId}_${followedId}` — makes follows idempotent
+  followerId: string;
+  followedId: string;
+  followedName: string;
+  followedPhoto?: string;
+  createdAt: Date;
+}
+
+export type FeedEventType = 'job_posted' | 'hired' | 'joined' | 'tip';
+
+export interface FeedEvent {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorPhoto?: string;
+  type: FeedEventType;
+  payload: Record<string, string>;  // job_posted: {jobId, jobTitle}; hired: {jobTitle}; tip: {text}
+  createdAt: Date;
+}
+
+export interface NewsFeedItem {
+  id: string;
+  kind: 'news';
+  headline: string;
+  excerpt: string;
+  sourceName: string;
+  sourceUrl: string;
+  publishedAt: string;
+}
+
+export interface Report {
+  id: string;
+  targetType: 'job' | 'user' | 'activity';
+  targetId: string;
+  reporterId: string;
+  reason: string;
+  resolved?: boolean;
   createdAt: Date;
 }
