@@ -175,11 +175,11 @@ export default function FeedPage() {
       {stream.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <div className="text-5xl mb-4">📡</div>
-          <p className="text-lg font-medium">Your feed is quiet.</p>
-          <p className="text-sm mt-1">Follow workers and employers to see their activity here.</p>
+          <p className="text-lg font-medium">The feed is fetching fresh tea.</p>
+          <p className="text-sm mt-1">Check back soon, or meet people while the internet does its thing.</p>
           <div className="flex justify-center gap-2 mt-5">
-            <Link href="/gigs" className="btn-secondary text-sm">Browse Gig Workers</Link>
-            <Link href="/professionals" className="btn-primary text-sm">Browse Professionals</Link>
+            <Link href="/people" className="btn-secondary text-sm">Find People</Link>
+            <Link href="/jobs" className="btn-primary text-sm">Browse Jobs</Link>
           </div>
         </div>
       ) : (

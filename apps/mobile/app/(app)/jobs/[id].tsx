@@ -23,7 +23,11 @@ export default function JobDetailScreen() {
     if (!coverLetter.trim()) { Alert.alert('Error', 'Please write a cover letter.'); return; }
     setApplying(true);
     try {
-      await applyToJob(id, user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter);
+      if (!job) return;
+      await applyToJob(
+        { id, title: job.title, postedBy: job.postedBy },
+        user.uid, user.displayName ?? user.email ?? 'Anonymous', coverLetter
+      );
       setApplied(true);
     } catch (err: any) { Alert.alert('Error', err.message); }
     finally { setApplying(false); }

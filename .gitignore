@@ -7,3 +7,9 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Firebase emulator debug logs
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
@@ -22,12 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (u) => {
-      setUser(u);
       if (u) {
         const snap = await getDoc(doc(db, 'users', u.uid));
-        setAccountType(snap.data()?.accountType ?? null);
-        setIsAdmin(snap.data()?.isAdmin === true);
+        const data = snap.data();
+        if (data?.banned) {
+          // Suspended accounts are signed out immediately.
+          await signOut(auth);
+          window.alert('Your account has been suspended.' + (data.bannedReason ? `\nReason: ${data.bannedReason}` : ''));
+          setUser(null);
+          setAccountType(null);
+          setIsAdmin(false);
+          setLoading(false);
+          return;
+        }
+        setUser(u);
+        setAccountType(data?.accountType ?? null);
+        setIsAdmin(data?.isAdmin === true);
       } else {
+        setUser(null);
         setAccountType(null);
         setIsAdmin(false);
       }

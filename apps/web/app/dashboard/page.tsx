@@ -4,16 +4,23 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { getProfile } from '@/lib/firestore';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { JobListing, GigProfile, ProfessionalProfile } from '@jobman/shared/src/types';
+import { getProfile, getMyApplications, setJobStatus, deleteJob } from '@/lib/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import type { JobListing, GigProfile, ProfessionalProfile, Application, ApplicationStatus } from '@jobman/shared/src/types';
+
+const APP_STATUS_STYLES: Record<ApplicationStatus, string> = {
+  pending: 'bg-amber-100 text-amber-700',
+  accepted: 'bg-green-100 text-green-700',
+  rejected: 'bg-slate-100 text-slate-500',
+};
 
 export default function DashboardPage() {
   const { user, accountType, loading: authLoading } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
   const [myJobs, setMyJobs] = useState<JobListing[]>([]);
+  const [myApplications, setMyApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,8 +31,45 @@ export default function DashboardPage() {
       getProfile(user.uid).then(setProfile),
       getDocs(query(collection(db, 'jobs'), where('postedBy', '==', user.uid), orderBy('createdAt', 'desc')))
         .then(snap => setMyJobs(snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)))),
+      getMyApplications(user.uid).then(setMyApplications).catch(() => setMyApplications([])),
     ]).finally(() => setLoading(false));
   }, [user, authLoading]);
+
+  async function handleToggleJobStatus(job: JobListing) {
+    const next = job.status === 'open' ? 'closed' : 'open';
+    await setJobStatus(job.id, next);
+    setMyJobs(jobs => jobs.map(j => j.id === job.id ? { ...j, status: next } : j));
+  }
+
+  async function handleDeleteJob(job: JobListing) {
+    if (!window.confirm(`Delete "${job.title}"? This cannot be undone.`)) return;
+    await deleteJob(job.id);
+    setMyJobs(jobs => jobs.filter(j => j.id !== job.id));
+  }
+
+  const [boostError, setBoostError] = useState('');
+
+  function isBoostActive(job: JobListing) {
+    const until = job.boostedUntil as unknown as Timestamp | undefined;
+    return job.boosted && until && until.toMillis() > Date.now();
+  }
+
+  async function handleBoostJob(job: JobListing) {
+    setBoostError('');
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jobId: job.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (err: any) {
+      setBoostError(err.message);
+    }
+  }
 
   if (authLoading || loading) return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-4">
@@ -49,7 +93,7 @@ export default function DashboardPage() {
               </p>
               <div className="flex gap-2">
                 <Link href={`/profile/${user?.uid}`} className="btn-secondary text-sm">View Profile</Link>
-                <Link href="/dashboard/edit-profile" className="btn-primary text-sm">Edit Profile</Link>
+                <Link href={profile.type === 'gig' ? '/dashboard/create-gig-profile' : '/dashboard/create-pro-profile'} className="btn-primary text-sm">Edit Profile</Link>
               </div>
             </div>
           ) : (
@@ -94,19 +138,58 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-slate-900">My Job Postings</h2>
               <Link href="/jobs/post" className="btn-primary text-sm">+ Post New</Link>
             </div>
+            {boostError && <p className="text-sm text-red-500 mb-3">{boostError}</p>}
             <div className="space-y-3">
               {myJobs.map(job => (
-                <div key={job.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                  <div>
+                <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                  <div className="min-w-0">
                     <p className="font-medium text-slate-900 text-sm">{job.title}</p>
-                    <p className="text-xs text-slate-500">{job.applicantCount} applicants · {job.location} · {job.type}</p>
+                    <p className="text-xs text-slate-500">
+                      <Link href={`/dashboard/jobs/${job.id}/applicants`} className="text-primary-600 font-semibold hover:underline">
+                        👥 {job.applicantCount} applicant{job.applicantCount !== 1 ? 's' : ''}
+                      </Link>
+                      {' '}· {job.location} · {job.type}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {isBoostActive(job) ? (
+                      <span className="badge text-xs bg-acid-300 text-ink border border-ink">⚡ Featured</span>
+                    ) : job.status === 'open' && (
+                      <button type="button" onClick={() => handleBoostJob(job)}
+                        className="text-xs font-bold text-accent-600 hover:text-accent-500">
+                        ⚡ Boost $5
+                      </button>
+                    )}
                     <span className={`badge text-xs ${job.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                       {job.status}
                     </span>
+                    <button type="button" onClick={() => handleToggleJobStatus(job)}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-700">
+                      {job.status === 'open' ? 'Close' : 'Reopen'}
+                    </button>
+                    <button type="button" onClick={() => handleDeleteJob(job)}
+                      className="text-xs font-semibold text-red-400 hover:text-red-600">
+                      Delete
+                    </button>
                     <Link href={`/jobs/${job.id}`} className="text-xs text-primary-600 hover:underline">View →</Link>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* My applications (workers) */}
+        {myApplications.length > 0 && (
+          <div className="card md:col-span-2">
+            <h2 className="font-semibold text-slate-900 mb-4">📨 My Applications</h2>
+            <div className="space-y-3">
+              {myApplications.map(app => (
+                <div key={app.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                  <Link href={`/jobs/${app.jobId}`} className="font-medium text-slate-900 text-sm hover:text-primary-600 truncate">
+                    {app.jobTitle || 'Job posting'}
+                  </Link>
+                  <span className={`badge text-xs flex-shrink-0 ${APP_STATUS_STYLES[app.status]}`}>{app.status}</span>
                 </div>
               ))}
             </div>
