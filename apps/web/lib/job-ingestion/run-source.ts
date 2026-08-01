@@ -2,7 +2,9 @@ import type { JobSourceProvider } from '@jobman/shared/src/types';
 import { fetchAshbyJobs } from './ashby';
 import { fetchGreenhouseJobs } from './greenhouse';
 import { fetchLeverJobs } from './lever';
+import { fetchRecruiteeJobs } from './recruitee';
 import { fetchSmartRecruitersJobs } from './smartrecruiters';
+import { fetchWorkableJobs } from './workable';
 import { upsertImportedJobs } from './shared';
 
 export type ScheduledJobSource = {
@@ -18,7 +20,7 @@ export type ScheduledJobSource = {
 export function validateScheduledSource(value: unknown): ScheduledJobSource | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Partial<ScheduledJobSource>;
-  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters'];
+  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee'];
   if (!source.provider || !providers.includes(source.provider)) return null;
   if (!source.sourceKey?.trim() || !source.companyName?.trim()) return null;
   return {
@@ -58,6 +60,20 @@ export async function runScheduledSource(source: ScheduledJobSource) {
       });
       break;
     }
+    case 'workable':
+      jobs = await fetchWorkableJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        careersUrl: source.careersUrl,
+      });
+      break;
+    case 'recruitee':
+      jobs = await fetchRecruiteeJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        careersUrl: source.careersUrl,
+      });
+      break;
   }
 
   await upsertImportedJobs(jobs, {
