@@ -36,6 +36,18 @@ const STARTER_SOURCES: ScheduledJobSource[] = [
     companyName: 'SmartRecruiters',
     careersUrl: 'https://careers.smartrecruiters.com/SmartRecruiters',
   },
+  {
+    provider: 'workable',
+    sourceKey: 'commonapp',
+    companyName: 'Common App',
+    careersUrl: 'https://apply.workable.com/commonapp/',
+  },
+  {
+    provider: 'recruitee',
+    sourceKey: 'resourcefultalentgroup',
+    companyName: 'Resourceful Talent Group',
+    careersUrl: 'https://resourcefultalentgroup.recruitee.com/',
+  },
 ];
 
 function isAuthorized(request: NextRequest) {

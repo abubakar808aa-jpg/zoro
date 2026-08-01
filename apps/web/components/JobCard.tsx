@@ -15,6 +15,9 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
   };
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
+  const sourceLabel = job.sourceProvider
+    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', manual: 'JobMan' } as const)[job.sourceProvider]
+    : 'JobMan';
 
   return (
     <Link href={`/jobs/${job.id}`} className={`block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`}>
@@ -64,7 +67,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
         )}
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
-          <span>{job.isImported ? `↗ ${job.sourceProvider} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
+          <span>{job.isImported ? `↗ ${sourceLabel} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
           <span>{posted}</span>
         </div>
       </div>
