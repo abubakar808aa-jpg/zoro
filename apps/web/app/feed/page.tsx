@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import FeedCard from '@/components/FeedCard';
 import Reveal from '@/components/Reveal';
 import { getFollowing, getFeed, createActivity, reportContent } from '@/lib/firestore';
+import { logInteraction } from '@/lib/analytics';
 import type { FeedEvent, NewsFeedItem } from '@jobman/shared/src/types';
 
 const TIP_MAX = 280;
@@ -33,7 +34,13 @@ function NewsCard({ item }: { item: NewsFeedItem }) {
         <h2 className="mt-5 font-display text-xl font-bold leading-snug text-ink">{item.headline}</h2>
         {item.excerpt && <p className="mt-3 text-sm leading-6 text-slate-600">{item.excerpt}</p>}
         <div className="mt-5 border-t border-ink/10 pt-4 text-right">
-          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-display text-sm font-bold text-ink hover:text-primary-700">
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => logInteraction({ type: 'news_open', newsId: item.id, sourceName: item.sourceName, sourceUrl: item.sourceUrl })}
+            className="font-display text-sm font-bold text-ink hover:text-primary-700"
+          >
             Read at the original source ↗
           </a>
         </div>

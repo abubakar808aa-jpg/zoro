@@ -4,8 +4,18 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
+function asDate(value: unknown) {
+  if (value instanceof Date) return value;
+  if (value && typeof value === 'object' && 'seconds' in value) {
+    return new Date(Number((value as { seconds: number }).seconds) * 1000);
+  }
+  const parsed = new Date(String(value || ''));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function JobCard({ job, featured = false }: { job: JobListing; featured?: boolean }) {
-  const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
+  const freshnessDate = asDate(job.isImported ? job.lastSeenAt : job.createdAt);
+  const freshness = freshnessDate ? formatDistanceToNow(freshnessDate, { addSuffix: true }) : '';
 
   const typeConfig: Record<string, { color: string; label: string; bar: string }> = {
     fulltime:  { color: 'bg-acid-200 text-ink',       label: 'Full-Time',  bar: 'from-acid-400 to-emerald-400' },
@@ -68,7 +78,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
           <span>{job.isImported ? `↗ ${sourceLabel} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
-          <span>{posted}</span>
+          <span>{job.isImported ? `Checked ${freshness}` : freshness}</span>
         </div>
       </div>
     </Link>

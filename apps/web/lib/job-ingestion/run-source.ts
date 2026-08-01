@@ -81,11 +81,10 @@ export async function fetchScheduledSource(source: ScheduledJobSource) {
 
 export async function runScheduledSource(source: ScheduledJobSource) {
   const jobs = await fetchScheduledSource(source);
-  await upsertImportedJobs(jobs, {
+  return upsertImportedJobs(jobs, {
     provider: source.provider,
     sourceKey: source.sourceKey,
     companyName: source.companyName,
     careersUrl: source.careersUrl,
   });
-  return jobs.length;
 }

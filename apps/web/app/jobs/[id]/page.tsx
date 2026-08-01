@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { getJob, applyToJob, getProfile, setJobStatus, deleteJob } from '@/lib/firestore';
 import { generateCoverLetter, vibeCheckJob, analyzeSkillGaps, checkSalaryFairness, type VibeCheck, type SkillGaps, type SalaryIntel } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
+import { logInteraction } from '@/lib/analytics';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
 function salaryString(job: JobListing): string {
@@ -19,6 +20,15 @@ const FAIRNESS_STYLES: Record<SalaryIntel['fairness'], { label: string; cls: str
   fair: { label: '⚖️ Fair pay', cls: 'bg-green-100 text-green-700' },
   above: { label: '🚀 Above market', cls: 'bg-acid-300 text-ink' },
 };
+
+function asDate(value: unknown) {
+  if (value instanceof Date) return value;
+  if (value && typeof value === 'object' && 'seconds' in value) {
+    return new Date(Number((value as { seconds: number }).seconds) * 1000);
+  }
+  const parsed = new Date(String(value || ''));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -148,7 +158,10 @@ export default function JobDetailPage() {
   if (loading) return <div className="max-w-3xl mx-auto px-4 py-10"><div className="card animate-pulse h-64" /></div>;
   if (!job) return <div className="text-center py-20 text-slate-400">Job not found.</div>;
 
-  const posted = job.createdAt ? formatDistanceToNow(new Date((job.createdAt as any).seconds * 1000), { addSuffix: true }) : '';
+  const postedDate = asDate(job.sourceUpdatedAt || job.createdAt);
+  const checkedDate = asDate(job.lastSeenAt);
+  const posted = postedDate ? formatDistanceToNow(postedDate, { addSuffix: true }) : '';
+  const checked = checkedDate ? formatDistanceToNow(checkedDate, { addSuffix: true }) : '';
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -159,7 +172,9 @@ export default function JobDetailPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{job.title}</h1>
             <p className="text-slate-500 mt-1">{job.postedByName} · {job.location}{job.remote ? ' · Remote OK' : ''}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Posted {posted}</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {job.isImported ? `Source updated ${posted} · Checked ${checked}` : `Posted ${posted}`}
+            </p>
           </div>
           {job.salary && (
             <div className="text-right flex-shrink-0">
@@ -284,7 +299,15 @@ export default function JobDetailPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original employer listing</p>
           <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.postedByName}</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. Your application stays with the employer — no weird detours.</p>
-          <a href={job.applyUrl} target="_blank" rel="noreferrer" className="btn-primary mt-5 inline-flex">Apply on the employer site ↗</a>
+          <a
+            href={job.applyUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => logInteraction({ type: 'job_apply_click', jobId: job.id })}
+            className="btn-primary mt-5 inline-flex"
+          >
+            Apply on the employer site ↗
+          </a>
         </div>
       ) : accountType !== 'employer' && job.status !== 'open' ? (
         <div className="card text-center py-8">

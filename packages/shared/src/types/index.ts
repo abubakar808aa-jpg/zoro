@@ -99,11 +99,17 @@ export interface JobListing {
   // Present only when JobMan indexes a public employer job board. These jobs
   // always route applicants to the employer's original application page.
   sourceProvider?: JobSourceProvider;
+  sourceKey?: string;
   sourceJobId?: string;
   sourceUrl?: string;
   applyUrl?: string;
   sourceUpdatedAt?: Date;
+  firstSeenAt?: Date;
   lastSeenAt?: Date;
+  fingerprint?: string;
+  duplicateOf?: string;
+  alsoFoundOn?: string[];
+  missingChecks?: number;
   isImported?: boolean;
 }
 
