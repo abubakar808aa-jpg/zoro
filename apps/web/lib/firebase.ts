@@ -15,7 +15,28 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const missingFirebaseKeys = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+// Firebase Auth throws during module evaluation when apiKey is missing. That
+// happens before React can render an error boundary or a useful setup message.
+// Use inert local placeholders to keep rendering alive, then let AuthProvider
+// surface the real configuration problem without making any Firebase request.
+export const firebaseConfigurationError = missingFirebaseKeys.length
+  ? `Local Firebase configuration is missing: ${missingFirebaseKeys.join(', ')}. Add the NEXT_PUBLIC_FIREBASE_* values to apps/web/.env.local and restart the development server.`
+  : null;
+
+const safeFirebaseConfig = {
+  apiKey: firebaseConfig.apiKey ?? 'jobman-local-config-missing',
+  authDomain: firebaseConfig.authDomain ?? 'jobman-local.invalid',
+  projectId: firebaseConfig.projectId ?? 'jobman-local-config-missing',
+  storageBucket: firebaseConfig.storageBucket ?? 'jobman-local.invalid',
+  messagingSenderId: firebaseConfig.messagingSenderId ?? '0',
+  appId: firebaseConfig.appId ?? 'jobman-local-config-missing',
+};
+
+const app = getApps().length === 0 ? initializeApp(safeFirebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
