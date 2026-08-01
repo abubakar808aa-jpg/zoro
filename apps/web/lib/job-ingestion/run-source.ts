@@ -34,7 +34,7 @@ export function validateScheduledSource(value: unknown): ScheduledJobSource | nu
   };
 }
 
-export async function runScheduledSource(source: ScheduledJobSource) {
+export async function fetchScheduledSource(source: ScheduledJobSource) {
   const common = {
     boardToken: source.sourceKey,
     companyName: source.companyName,
@@ -76,11 +76,15 @@ export async function runScheduledSource(source: ScheduledJobSource) {
       break;
   }
 
-  await upsertImportedJobs(jobs, {
+  return jobs;
+}
+
+export async function runScheduledSource(source: ScheduledJobSource) {
+  const jobs = await fetchScheduledSource(source);
+  return upsertImportedJobs(jobs, {
     provider: source.provider,
     sourceKey: source.sourceKey,
     companyName: source.companyName,
     careersUrl: source.careersUrl,
   });
-  return jobs.length;
 }

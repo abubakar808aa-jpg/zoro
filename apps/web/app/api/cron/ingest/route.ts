@@ -6,49 +6,11 @@ import {
   validateScheduledSource,
   type ScheduledJobSource,
 } from '@/lib/job-ingestion/run-source';
+import { STARTER_SOURCES } from '@/lib/job-ingestion/sources';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
-
-const STARTER_SOURCES: ScheduledJobSource[] = [
-  {
-    provider: 'greenhouse',
-    sourceKey: 'figma',
-    companyName: 'Figma',
-    careersUrl: 'https://www.figma.com/careers/',
-  },
-  {
-    provider: 'lever',
-    sourceKey: 'palantir',
-    companyName: 'Palantir',
-    careersUrl: 'https://www.palantir.com/careers/',
-  },
-  {
-    provider: 'ashby',
-    sourceKey: 'ramp',
-    companyName: 'Ramp',
-    careersUrl: 'https://ramp.com/careers',
-  },
-  {
-    provider: 'smartrecruiters',
-    sourceKey: 'smartrecruiters',
-    companyName: 'SmartRecruiters',
-    careersUrl: 'https://careers.smartrecruiters.com/SmartRecruiters',
-  },
-  {
-    provider: 'workable',
-    sourceKey: 'commonapp',
-    companyName: 'Common App',
-    careersUrl: 'https://apply.workable.com/commonapp/',
-  },
-  {
-    provider: 'recruitee',
-    sourceKey: 'resourcefultalentgroup',
-    companyName: 'Resourceful Talent Group',
-    careersUrl: 'https://resourcefultalentgroup.recruitee.com/',
-  },
-];
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -102,13 +64,24 @@ export async function GET(request: NextRequest) {
       ...(includeStarters ? STARTER_SOURCES : []),
     ]).slice(0, 12);
 
-    const results: Array<{ provider: string; sourceKey: string; status: 'success' | 'failed'; jobsFound: number; error?: string }> = [];
+    const results: Array<{
+      provider: string;
+      sourceKey: string;
+      status: 'success' | 'failed';
+      jobsFound: number;
+      jobsCreated: number;
+      jobsUpdated: number;
+      jobsDeduplicated: number;
+      jobsClosed: number;
+      error?: string;
+    }> = [];
 
     // Run two feeds at a time so a slow employer cannot block every connector,
     // while keeping outbound traffic and Firestore writes controlled.
     for (let index = 0; index < sources.length; index += 2) {
       const chunk = sources.slice(index, index + 2);
       const settled = await Promise.all(chunk.map(async source => {
+        const startedAt = Date.now();
         const logRef = db.collection('sourceFetchLogs').doc();
         await logRef.set({
           runId: runRef.id,
@@ -119,21 +92,19 @@ export async function GET(request: NextRequest) {
           status: 'running',
         });
         try {
-          const jobsFound = await runScheduledSource(source);
+          const stats = await runScheduledSource(source);
           await logRef.set({
             status: 'success',
             responseStatus: 200,
-            jobsFound,
-            jobsCreated: null,
-            jobsUpdated: null,
-            jobsClosed: 0,
+            ...stats,
+            durationMs: Date.now() - startedAt,
             completedAt: FieldValue.serverTimestamp(),
           }, { merge: true });
-          return { provider: source.provider, sourceKey: source.sourceKey, status: 'success' as const, jobsFound };
+          return { provider: source.provider, sourceKey: source.sourceKey, status: 'success' as const, ...stats };
         } catch (cause) {
           const error = cause instanceof Error ? cause.message : 'Unknown connector error.';
           await Promise.all([
-            logRef.set({ status: 'failed', error, completedAt: FieldValue.serverTimestamp() }, { merge: true }),
+            logRef.set({ status: 'failed', error, durationMs: Date.now() - startedAt, completedAt: FieldValue.serverTimestamp() }, { merge: true }),
             db.collection('jobSources').doc(`${source.provider}_${source.sourceKey}`).set({
               provider: source.provider,
               sourceKey: source.sourceKey,
@@ -143,7 +114,7 @@ export async function GET(request: NextRequest) {
               lastError: error,
             }, { merge: true }),
           ]);
-          return { provider: source.provider, sourceKey: source.sourceKey, status: 'failed' as const, jobsFound: 0, error };
+          return { provider: source.provider, sourceKey: source.sourceKey, status: 'failed' as const, jobsFound: 0, jobsCreated: 0, jobsUpdated: 0, jobsDeduplicated: 0, jobsClosed: 0, error };
         }
       }));
       results.push(...settled);
@@ -151,15 +122,23 @@ export async function GET(request: NextRequest) {
 
     const failures = results.filter(item => item.status === 'failed').length;
     const jobsFound = results.reduce((sum, item) => sum + item.jobsFound, 0);
+    const jobsCreated = results.reduce((sum, item) => sum + item.jobsCreated, 0);
+    const jobsUpdated = results.reduce((sum, item) => sum + item.jobsUpdated, 0);
+    const jobsDeduplicated = results.reduce((sum, item) => sum + item.jobsDeduplicated, 0);
+    const jobsClosed = results.reduce((sum, item) => sum + item.jobsClosed, 0);
     await runRef.set({
       status: failures ? 'partial' : 'success',
       sourcesAttempted: results.length,
       sourcesFailed: failures,
       jobsFound,
+      jobsCreated,
+      jobsUpdated,
+      jobsDeduplicated,
+      jobsClosed,
       completedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    return NextResponse.json({ runId: runRef.id, sourcesAttempted: results.length, failures, jobsFound, results }, { status: failures === results.length && results.length ? 502 : 200 });
+    return NextResponse.json({ runId: runRef.id, sourcesAttempted: results.length, failures, jobsFound, jobsCreated, jobsUpdated, jobsDeduplicated, jobsClosed, results }, { status: failures === results.length && results.length ? 502 : 200 });
   } catch (cause) {
     const error = cause instanceof Error ? cause.message : 'Scheduled ingestion failed.';
     await runRef.set({ status: 'failed', error, completedAt: FieldValue.serverTimestamp() }, { merge: true });

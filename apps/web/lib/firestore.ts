@@ -44,7 +44,7 @@ export async function getJobs(
 
   const snap = await getDocs(query(collection(db, 'jobs'), ...constraints));
   return {
-    jobs: snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)),
+    jobs: snap.docs.map(d => ({ ...d.data(), id: d.id } as JobListing)),
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
   };
 }
@@ -60,7 +60,7 @@ export async function getBoostedJobs(): Promise<JobListing[]> {
   ));
   const now = Date.now();
   return snap.docs
-    .map(d => ({ id: d.id, ...d.data() } as JobListing))
+    .map(d => ({ ...d.data(), id: d.id } as JobListing))
     .filter(j => {
       const until = j.boostedUntil as unknown as Timestamp | undefined;
       return until ? until.toMillis() > now : false;
@@ -69,7 +69,7 @@ export async function getBoostedJobs(): Promise<JobListing[]> {
 
 export async function getJob(id: string) {
   const snap = await getDoc(doc(db, 'jobs', id));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as JobListing) : null;
+  return snap.exists() ? ({ ...snap.data(), id: snap.id } as JobListing) : null;
 }
 
 export async function updateJob(id: string, data: Partial<Omit<JobListing, 'id'>>) {
@@ -404,7 +404,7 @@ export async function getAllJobs(
   constraints.push(limit(JOBS_PAGE_SIZE));
   const snap = await getDocs(query(collection(db, 'jobs'), ...constraints));
   return {
-    jobs: snap.docs.map(d => ({ id: d.id, ...d.data() } as JobListing)),
+    jobs: snap.docs.map(d => ({ ...d.data(), id: d.id } as JobListing)),
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
   };
 }
