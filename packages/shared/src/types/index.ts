@@ -2,7 +2,18 @@ export type AccountType = 'worker' | 'employer';
 export type ProfileType = 'gig' | 'professional';
 export type JobType = 'gig' | 'fulltime' | 'parttime' | 'contract';
 export type JobStatus = 'open' | 'closed';
-export type JobSourceProvider = 'manual' | 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters' | 'workable' | 'recruitee';
+export type JobSourceProvider =
+  | 'manual'
+  | 'greenhouse'
+  | 'lever'
+  | 'ashby'
+  | 'smartrecruiters'
+  | 'workable'
+  | 'recruitee'
+  | 'bamboohr'
+  | 'personio'
+  | 'remotive'
+  | 'arbeitnow';
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 export type MessageFileType = 'image' | 'document' | 'none';
 

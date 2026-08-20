@@ -5,6 +5,10 @@ import { fetchLeverJobs } from './lever';
 import { fetchRecruiteeJobs } from './recruitee';
 import { fetchSmartRecruitersJobs } from './smartrecruiters';
 import { fetchWorkableJobs } from './workable';
+import { fetchBambooHrJobs } from './bamboohr';
+import { fetchPersonioJobs } from './personio';
+import { fetchRemotiveJobs } from './remotive';
+import { fetchArbeitnowJobs } from './arbeitnow';
 import { upsertImportedJobs } from './shared';
 
 export type ScheduledJobSource = {
@@ -20,7 +24,7 @@ export type ScheduledJobSource = {
 export function validateScheduledSource(value: unknown): ScheduledJobSource | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Partial<ScheduledJobSource>;
-  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee'];
+  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'bamboohr', 'personio', 'remotive', 'arbeitnow'];
   if (!source.provider || !providers.includes(source.provider)) return null;
   if (!source.sourceKey?.trim() || !source.companyName?.trim()) return null;
   return {
@@ -71,6 +75,30 @@ export async function fetchScheduledSource(source: ScheduledJobSource) {
       jobs = await fetchRecruiteeJobs({
         sourceKey: source.sourceKey,
         companyName: source.companyName,
+        careersUrl: source.careersUrl,
+      });
+      break;
+    case 'bamboohr':
+      jobs = await fetchBambooHrJobs(common);
+      break;
+    case 'personio':
+      jobs = await fetchPersonioJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        careersUrl: source.careersUrl,
+      });
+      break;
+    case 'remotive':
+      jobs = await fetchRemotiveJobs({
+        companyName: source.companyName,
+        sourceKey: source.sourceKey,
+        careersUrl: source.careersUrl,
+      });
+      break;
+    case 'arbeitnow':
+      jobs = await fetchArbeitnowJobs({
+        companyName: source.companyName,
+        sourceKey: source.sourceKey,
         careersUrl: source.careersUrl,
       });
       break;

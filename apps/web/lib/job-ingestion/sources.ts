@@ -37,4 +37,20 @@ export const STARTER_SOURCES: ScheduledJobSource[] = [
     companyName: 'Resourceful Talent Group',
     careersUrl: 'https://resourcefultalentgroup.recruitee.com/',
   },
+  // Multi-company aggregators: free, no-auth, no board token required. One
+  // source imports remote roles from many employers (each job keeps its own
+  // employer name). Per-company ATS boards (bamboohr, personio) are added via
+  // CONNECTOR_SOURCES_JSON or the jobSources collection — see docs/README.md.
+  {
+    provider: 'remotive',
+    sourceKey: 'remotive',
+    companyName: 'Remotive',
+    careersUrl: 'https://remotive.com/',
+  },
+  {
+    provider: 'arbeitnow',
+    sourceKey: 'arbeitnow',
+    companyName: 'Arbeitnow',
+    careersUrl: 'https://www.arbeitnow.com/',
+  },
 ];

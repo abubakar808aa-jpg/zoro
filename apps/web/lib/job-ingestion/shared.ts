@@ -125,7 +125,12 @@ export async function upsertImportedJobs(jobs: ImportedJob[], source: SourceReco
       const cleanJobData = omitUndefined(jobData) as Record<string, unknown>;
       const existing = existingById.get(id);
       const existingData = existing?.data() ?? {};
-      const fingerprint = importedJobFingerprint(job, source.companyName);
+      // Fingerprint by the job's own employer, matching how the canonical map is
+      // keyed above (data.postedByName). For per-company connectors this equals
+      // source.companyName; for multi-company aggregators (one source, many
+      // employers) it prevents unrelated jobs that share a title/location/type
+      // from being wrongly collapsed as duplicates of each other.
+      const fingerprint = importedJobFingerprint(job, job.postedByName || source.companyName);
       const canonicalId = canonicalByFingerprint.get(fingerprint);
       const duplicateOf = canonicalId && canonicalId !== id ? canonicalId : undefined;
       const firstSeenAt = existingData.firstSeenAt || existingData.createdAt || now;

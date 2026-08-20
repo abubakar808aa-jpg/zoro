@@ -26,7 +26,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
   const sourceLabel = job.sourceProvider
-    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', manual: 'JobMan' } as const)[job.sourceProvider]
+    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', bamboohr: 'BambooHR', personio: 'Personio', remotive: 'Remotive', arbeitnow: 'Arbeitnow', manual: 'JobMan' } as const)[job.sourceProvider]
     : 'JobMan';
 
   return (
