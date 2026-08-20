@@ -1,5 +1,19 @@
 import { NextResponse } from 'next/server';
 
+// Serialize a value for safe embedding inside an inline <script>. JSON.stringify
+// alone does not neutralize "</script>", U+2028/U+2029, or HTML-comment openers,
+// so a value like the attacker-controlled `state` param could otherwise break out
+// of the script element and inject markup (reflected XSS). Escaping these as \uXXXX
+// keeps the output valid JSON that parses back to the original characters.
+function serializeForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 // LinkedIn OAuth (OpenID Connect) callback. The popup lands here with ?code=;
 // we exchange it server-side (client secret never reaches the browser), fetch
 // the userinfo, and postMessage the profile back to the window that opened us.
@@ -54,8 +68,8 @@ export async function GET(req: Request) {
 <script>
   if (window.opener) {
     window.opener.postMessage(
-      { source: 'jobman-linkedin', state: ${JSON.stringify(state)}, ...${JSON.stringify(payload)} },
-      ${JSON.stringify(url.origin)}
+      { source: 'jobman-linkedin', state: ${serializeForScript(state)}, ...${serializeForScript(payload)} },
+      ${serializeForScript(url.origin)}
     );
     window.close();
   } else {
