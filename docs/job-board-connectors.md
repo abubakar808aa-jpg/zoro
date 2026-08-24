@@ -112,3 +112,17 @@ Provider reference: https://docs.recruitee.com/reference/offers
 - Re-running a source updates its existing documents, so the same role is not duplicated.
 - Schedule each source every 6–12 hours. Keep the secret in your scheduler or deployment environment, never in the browser.
 - Start with a small employer allowlist. Respect each provider's terms, rate limits, and removal requests.
+
+### Description quality
+
+- Every connector converts provider HTML into plain, readable text before writing a job. Existing records are normalized again when cards and detail pages render, so older escaped HTML remains readable without rewriting production data.
+- The normalizer keeps paragraphs, headings, and list bullets while removing tags, attributes, links, comments, scripts, styles, and malformed active-content blocks.
+- Do not render provider HTML with `dangerouslySetInnerHTML`. If rich HTML is added later, use an established sanitizer with an explicit tag and attribute allowlist first.
+
+### Outbound-click health
+
+- Job cards and imported-job detail pages emit `job_apply_click`; feed source links emit `news_open`.
+- Delivery first uses `navigator.sendBeacon`, then falls back to a non-blocking `fetch` request with `keepalive: true` when the browser declines the beacon. A failed counter never blocks the external destination.
+- `/api/events` accepts only the minimal allowlisted event fields. News events store the generated news ID and source name; they do not send or store full article URLs. Job events verify the imported job server-side and store only its provider/source metadata and destination hostname.
+- In staging, inspect the `/api/events` request in the browser network panel and confirm a `204` response. Do not click production links merely to manufacture monitoring data.
+- After real traffic, monitor `interactionEvents` by `type` and `createdAt`. A quiet 24-hour window is not automatically a tracking outage; distinguish zero traffic from delivery errors using browser/network checks and server logs.

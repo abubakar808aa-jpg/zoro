@@ -2,19 +2,10 @@ import { FieldValue } from 'firebase-admin/firestore';
 import type { JobListing, JobSourceProvider } from '@jobman/shared/src/types';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { ImportedJob } from './greenhouse';
+import { normalizeJobDescription } from '@/lib/job-description';
 
 export function stripHtml(content = '') {
-  return content
-    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\n\s*\n\s*\n+/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
+  return normalizeJobDescription(content);
 }
 
 export function toDate(value?: string | number) {

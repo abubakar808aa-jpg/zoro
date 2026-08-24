@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { logInteraction } from '@/lib/analytics';
+import { normalizeJobDescription } from '@/lib/job-description';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
 function asDate(value: unknown) {
@@ -14,8 +17,10 @@ function asDate(value: unknown) {
 }
 
 export default function JobCard({ job, featured = false }: { job: JobListing; featured?: boolean }) {
+  const [trackingNotice, setTrackingNotice] = useState('');
   const freshnessDate = asDate(job.isImported ? job.lastSeenAt : job.createdAt);
   const freshness = freshnessDate ? formatDistanceToNow(freshnessDate, { addSuffix: true }) : '';
+  const description = normalizeJobDescription(job.description);
 
   const typeConfig: Record<string, { color: string; label: string; bar: string }> = {
     fulltime:  { color: 'bg-acid-200 text-ink',       label: 'Full-Time',  bar: 'from-acid-400 to-emerald-400' },
@@ -28,9 +33,10 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
   const sourceLabel = job.sourceProvider
     ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', manual: 'JobMan' } as const)[job.sourceProvider]
     : 'JobMan';
-
-  return (
-    <Link href={`/jobs/${job.id}`} className={`block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`}>
+  const isExternal = Boolean(job.isImported && job.applyUrl);
+  const cardClassName = `block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`;
+  const cardContent = (
+    <>
       {featured ? (
         <div className="h-7 w-full bg-acid-300 border-b-2 border-ink flex items-center px-4">
           <span className="text-xs font-display font-bold text-ink tracking-wide">⚡ FEATURED</span>
@@ -58,7 +64,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
           </div>
         </div>
 
-        <p className="text-sm text-slate-500 mt-3 line-clamp-2 leading-relaxed">{job.description}</p>
+        <p className="text-sm text-slate-500 mt-3 line-clamp-2 leading-relaxed">{description}</p>
 
         {((job.genZTags?.length ?? 0) > 0 || job.skills?.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mt-3">
@@ -77,10 +83,38 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
         )}
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
-          <span>{job.isImported ? `↗ ${sourceLabel} source` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}</span>
+          <span className={job.isImported ? 'font-bold text-primary-700' : ''}>
+            {job.isImported ? `Apply on ${job.postedByName} site ↗` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}
+          </span>
           <span>{job.isImported ? `Checked ${freshness}` : freshness}</span>
         </div>
+        {job.isImported && <p className="mt-2 text-[11px] text-slate-400">Found via {sourceLabel} · Opens the employer’s original listing</p>}
+        {trackingNotice && (
+          <p role="status" aria-live="polite" className="mt-2 text-xs font-semibold text-amber-700">
+            {trackingNotice}
+          </p>
+        )}
       </div>
-    </Link>
+    </>
   );
+
+  if (isExternal) {
+    return (
+      <a
+        href={job.applyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => logInteraction(
+          { type: 'job_apply_click', jobId: job.id },
+          () => setTrackingNotice('The employer page opened, but our click counter took a coffee break.'),
+        )}
+        className={cardClassName}
+        aria-label={`Apply for ${job.title} on ${job.postedByName}'s website`}
+      >
+        {cardContent}
+      </a>
+    );
+  }
+
+  return <Link href={`/jobs/${job.id}`} className={cardClassName}>{cardContent}</Link>;
 }
