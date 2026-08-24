@@ -57,6 +57,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/agents', label: '🧠 Agents' },
     { href: '/admin/users', label: '👥 Users' },
     { href: '/admin/jobs', label: '📋 Jobs' },
+    { href: '/admin/providers', label: '🛠️ Provider discovery' },
+    { href: '/admin/market', label: '📈 Bay demand' },
+    { href: '/admin/integrations', label: '🔐 Connector gates' },
     { href: '/admin/reports', label: '⚑ Reports' },
   ];
 

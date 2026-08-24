@@ -1,0 +1,17 @@
+{
+  "page": 0,
+  "page_count": 2,
+  "results": [
+    {
+      "id": 987,
+      "name": "Field Service Technician",
+      "contents": "<p>Help Bay Area customers.</p><ul><li>Install equipment</li><li>Make their day</li></ul>",
+      "publication_date": "2026-08-22T10:00:00Z",
+      "company": {"name": "Fixit Co"},
+      "locations": [{"name": "San Francisco, CA"}],
+      "categories": [{"name": "Installation, Maintenance, and Repairs"}],
+      "levels": [{"name": "Entry Level"}],
+      "refs": {"landing_page": "https://www.themuse.com/jobs/fixit/field-service-technician"}
+    }
+  ]
+}

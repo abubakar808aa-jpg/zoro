@@ -7,6 +7,7 @@ import {
   type ScheduledJobSource,
 } from '@/lib/job-ingestion/run-source';
 import { STARTER_SOURCES } from '@/lib/job-ingestion/sources';
+import { fetchOfficialNews } from '@/lib/news-ingestion/news';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -120,6 +121,35 @@ export async function GET(request: NextRequest) {
       results.push(...settled);
     }
 
+    // Economic news uses the same protected daily heartbeat but has separate
+    // health collections so job counts and news-source failures never blur.
+    const newsRunRef = db.collection('newsIngestionRuns').doc();
+    await newsRunRef.set({ trigger: 'vercel-cron', status: 'running', startedAt: FieldValue.serverTimestamp() });
+    const newsResult = await fetchOfficialNews();
+    const newsBatch = db.batch();
+    for (const source of newsResult.sources) {
+      newsBatch.set(db.collection('newsSourceFetchLogs').doc(), {
+        runId: newsRunRef.id,
+        source: source.id,
+        sourceName: source.name,
+        status: source.status,
+        itemsFound: source.itemsFound,
+        durationMs: source.durationMs,
+        error: source.error ?? null,
+        checkedAt: source.checkedAt,
+        completedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    const newsFailures = newsResult.sources.filter(source => source.status === 'failed').length;
+    newsBatch.set(newsRunRef, {
+      status: newsFailures ? 'partial' : 'success',
+      sourcesAttempted: newsResult.sources.length,
+      sourcesFailed: newsFailures,
+      itemsFound: newsResult.news.length,
+      completedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await newsBatch.commit();
+
     const failures = results.filter(item => item.status === 'failed').length;
     const jobsFound = results.reduce((sum, item) => sum + item.jobsFound, 0);
     const jobsCreated = results.reduce((sum, item) => sum + item.jobsCreated, 0);
@@ -138,7 +168,10 @@ export async function GET(request: NextRequest) {
       completedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    return NextResponse.json({ runId: runRef.id, sourcesAttempted: results.length, failures, jobsFound, jobsCreated, jobsUpdated, jobsDeduplicated, jobsClosed, results }, { status: failures === results.length && results.length ? 502 : 200 });
+    return NextResponse.json({
+      runId: runRef.id, sourcesAttempted: results.length, failures, jobsFound, jobsCreated, jobsUpdated, jobsDeduplicated, jobsClosed, results,
+      news: { runId: newsRunRef.id, sourcesAttempted: newsResult.sources.length, failures: newsFailures, itemsFound: newsResult.news.length },
+    }, { status: failures === results.length && results.length ? 502 : 200 });
   } catch (cause) {
     const error = cause instanceof Error ? cause.message : 'Scheduled ingestion failed.';
     await runRef.set({ status: 'failed', error, completedAt: FieldValue.serverTimestamp() }, { merge: true });

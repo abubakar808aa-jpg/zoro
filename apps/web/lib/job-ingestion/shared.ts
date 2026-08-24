@@ -116,7 +116,9 @@ export async function upsertImportedJobs(jobs: ImportedJob[], source: SourceReco
       const cleanJobData = omitUndefined(jobData) as Record<string, unknown>;
       const existing = existingById.get(id);
       const existingData = existing?.data() ?? {};
-      const fingerprint = importedJobFingerprint(job, source.companyName);
+      // Aggregate sources (for example USAJOBS or The Muse) contain many
+      // employers, so the job's normalized employer is the dedupe boundary.
+      const fingerprint = importedJobFingerprint(job, job.postedByName || source.companyName);
       const canonicalId = canonicalByFingerprint.get(fingerprint);
       const duplicateOf = canonicalId && canonicalId !== id ? canonicalId : undefined;
       const firstSeenAt = existingData.firstSeenAt || existingData.createdAt || now;

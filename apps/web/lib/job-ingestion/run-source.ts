@@ -5,6 +5,8 @@ import { fetchLeverJobs } from './lever';
 import { fetchPersonioJobs, isPersonioLanguage, type PersonioLanguage } from './personio';
 import { fetchRecruiteeJobs } from './recruitee';
 import { fetchSmartRecruitersJobs } from './smartrecruiters';
+import { fetchUsaJobs } from './usajobs';
+import { fetchTheMuseJobs } from './themuse';
 import { fetchWorkableJobs } from './workable';
 import { upsertImportedJobs } from './shared';
 
@@ -17,12 +19,17 @@ export type ScheduledJobSource = {
   region?: 'global' | 'eu';
   credentialEnvKey?: string;
   language?: PersonioLanguage;
+  keyword?: string;
+  location?: string;
+  maxPages?: number;
+  category?: string;
+  level?: string;
 };
 
 export function validateScheduledSource(value: unknown): ScheduledJobSource | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Partial<ScheduledJobSource>;
-  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio'];
+  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'usajobs', 'themuse'];
   if (!source.provider || !providers.includes(source.provider)) return null;
   if (!source.sourceKey?.trim() || !source.companyName?.trim()) return null;
   const rawLanguage = (source as { language?: unknown }).language;
@@ -36,6 +43,11 @@ export function validateScheduledSource(value: unknown): ScheduledJobSource | nu
     region: source.region === 'eu' ? 'eu' : 'global',
     credentialEnvKey: source.credentialEnvKey?.trim() || undefined,
     language: source.provider === 'personio' && isPersonioLanguage(rawLanguage) ? rawLanguage : undefined,
+    keyword: source.keyword?.trim().slice(0, 100) || undefined,
+    location: source.location?.trim().slice(0, 100) || undefined,
+    maxPages: Number.isInteger(source.maxPages) ? Math.min(5, Math.max(1, Number(source.maxPages))) : undefined,
+    category: source.category?.trim().slice(0, 100) || undefined,
+    level: source.level?.trim().slice(0, 100) || undefined,
   };
 }
 
@@ -86,6 +98,23 @@ export async function fetchScheduledSource(source: ScheduledJobSource) {
         careersUrl: source.careersUrl,
         language: source.language,
       });
+      break;
+    case 'usajobs':
+      jobs = await fetchUsaJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        keyword: source.keyword,
+        location: source.location,
+      }, { maxPages: source.maxPages });
+      break;
+    case 'themuse':
+      jobs = await fetchTheMuseJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        category: source.category,
+        location: source.location,
+        level: source.level,
+      }, { maxPages: source.maxPages });
       break;
   }
 

@@ -193,6 +193,7 @@ export default function JobDetailPage() {
           <span className="badge bg-blue-100 text-blue-700">{job.type}</span>
           <span className="badge bg-slate-100 text-slate-600">{job.category}</span>
           <span className="badge bg-slate-100 text-slate-500">{job.applicantCount} applicants</span>
+          {job.sourceMetadata?.federal && <span className="badge bg-blue-50 text-blue-800">🇺🇸 Federal role</span>}
           {job.genZTags?.map(tag => {
             const t = GEN_Z_TAGS.find(g => g.id === tag);
             return t ? <span key={tag} className="badge bg-primary-100 text-primary-700">{t.emoji} {t.label}</span> : null;
@@ -297,22 +298,22 @@ export default function JobDetailPage() {
 
       {/* Apply Section */}
       {job.isImported && job.applyUrl ? (
-        /* Imported roles keep applications with the original employer. */
+        /* Imported roles always leave JobMan for their original external listing. */
         <div className="card text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original employer listing</p>
-          <h2 className="mt-2 font-display text-xl font-bold text-ink">Apply directly with {job.postedByName}</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. Your application stays with the employer — no weird detours.</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-primary-600">Original external listing</p>
+          <h2 className="mt-2 font-display text-xl font-bold text-ink">{job.sourceMetadata?.applyDestination === 'source' ? 'Continue to the original listing' : `Apply directly with ${job.postedByName}`}</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">JobMan found and organized this role. You’ll leave JobMan to continue—no fake “application submitted” confetti.</p>
           <a
             href={job.applyUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => logInteraction(
               { type: 'job_apply_click', jobId: job.id },
-              () => setTrackingNotice('The employer page opened, but our click counter took a coffee break.'),
+              () => setTrackingNotice('The listing opened, but our click counter took a coffee break.'),
             )}
             className="btn-primary mt-5 inline-flex"
           >
-            Apply on the employer site ↗
+            {job.sourceMetadata?.applyDestination === 'source' ? 'Open original listing ↗' : 'Apply on the employer site ↗'}
           </a>
           {trackingNotice && (
             <p role="status" aria-live="polite" className="mt-3 text-xs font-semibold text-amber-700">

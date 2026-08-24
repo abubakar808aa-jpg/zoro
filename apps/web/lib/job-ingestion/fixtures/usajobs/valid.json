@@ -1,0 +1,42 @@
+{
+  "SearchResult": {
+    "SearchResultCountAll": 2,
+    "SearchResultItems": [
+      {
+        "MatchedObjectId": "1245",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SF-2026-1245",
+          "PositionTitle": "Information Technology Specialist",
+          "PositionURI": "https://www.usajobs.gov/job/1245",
+          "ApplyURI": ["https://apply.usajobs.gov/Application/Index/1245"],
+          "PositionLocationDisplay": "San Francisco, California",
+          "OrganizationName": "General Services Administration",
+          "DepartmentName": "General Services Administration",
+          "QualificationSummary": "Build useful public services.",
+          "PositionSchedule": [{"Name": "Full-time"}],
+          "PositionOfferingType": [{"Name": "Permanent"}],
+          "PositionRemuneration": [{"MinimumRange": "108245", "MaximumRange": "167336", "RateIntervalCode": "Per Year"}],
+          "PublicationStartDate": "2026-08-20T00:00:00Z",
+          "ApplicationCloseDate": "2026-09-20T23:59:59Z",
+          "UserArea": {"Details": {"MajorDuties": ["Ship accessible services", "Protect public data"], "RemoteIndicator": false}}
+        }
+      },
+      {
+        "MatchedObjectId": "1246",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SF-2026-1246",
+          "PositionTitle": "Program Analyst (Remote)",
+          "PositionURI": "https://www.usajobs.gov/job/1246",
+          "ApplyURI": [],
+          "PositionLocationDisplay": "Anywhere in the U.S. (remote job)",
+          "OrganizationName": "Department of Labor",
+          "QualificationSummary": "Support worker opportunity programs.",
+          "PositionSchedule": [{"Name": "Part-time"}],
+          "PositionOfferingType": [{"Name": "Temporary"}],
+          "PublicationStartDate": "2026-08-21T00:00:00Z",
+          "ApplicationCloseDate": "2026-09-21T23:59:59Z"
+        }
+      }
+    ]
+  }
+}

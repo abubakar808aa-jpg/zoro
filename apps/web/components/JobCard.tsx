@@ -31,7 +31,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
   const sourceLabel = job.sourceProvider
-    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', personio: 'Personio', manual: 'JobMan' } as const)[job.sourceProvider]
+    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', personio: 'Personio', usajobs: 'USAJOBS', themuse: 'The Muse', manual: 'JobMan' } as const)[job.sourceProvider]
     : 'JobMan';
   const isExternal = Boolean(job.isImported && job.applyUrl);
   const cardClassName = `block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`;
@@ -84,11 +84,11 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50 text-xs text-slate-400">
           <span className={job.isImported ? 'font-bold text-primary-700' : ''}>
-            {job.isImported ? `Apply on ${job.postedByName} site ↗` : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}
+            {job.isImported ? (job.sourceMetadata?.applyDestination === 'source' ? 'Open original listing ↗' : `Apply on ${job.postedByName} site ↗`) : `👥 ${job.applicantCount} applicant${job.applicantCount !== 1 ? 's' : ''}`}
           </span>
           <span>{job.isImported ? `Checked ${freshness}` : freshness}</span>
         </div>
-        {job.isImported && <p className="mt-2 text-[11px] text-slate-400">Found via {sourceLabel} · Opens the employer’s original listing</p>}
+        {job.isImported && <p className="mt-2 text-[11px] text-slate-400">{job.sourceMetadata?.federal ? '🇺🇸 Federal role · ' : ''}Found via {sourceLabel} · Opens the original external listing</p>}
         {trackingNotice && (
           <p role="status" aria-live="polite" className="mt-2 text-xs font-semibold text-amber-700">
             {trackingNotice}
@@ -106,7 +106,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
         rel="noopener noreferrer"
         onClick={() => logInteraction(
           { type: 'job_apply_click', jobId: job.id },
-          () => setTrackingNotice('The employer page opened, but our click counter took a coffee break.'),
+          () => setTrackingNotice('The listing opened, but our click counter took a coffee break.'),
         )}
         className={cardClassName}
         aria-label={`Apply for ${job.title} on ${job.postedByName}'s website`}

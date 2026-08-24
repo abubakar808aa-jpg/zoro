@@ -16,7 +16,9 @@ Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are r
   { "provider": "smartrecruiters", "sourceKey": "smartrecruiters", "companyName": "SmartRecruiters" },
   { "provider": "workable", "sourceKey": "commonapp", "companyName": "Common App" },
   { "provider": "recruitee", "sourceKey": "resourcefultalentgroup", "companyName": "Resourceful Talent Group" },
-  { "provider": "personio", "sourceKey": "acme", "companyName": "Acme", "language": "en" }
+  { "provider": "personio", "sourceKey": "acme", "companyName": "Acme", "language": "en" },
+  { "provider": "usajobs", "sourceKey": "bay-area-tech", "companyName": "U.S. Federal Government", "keyword": "technology", "location": "San Francisco, California", "maxPages": 3 },
+  { "provider": "themuse", "sourceKey": "bay-area-services", "companyName": "The Muse marketplace", "category": "Installation, Maintenance, and Repairs", "location": "San Francisco, CA", "maxPages": 3 }
 ]
 ```
 
@@ -142,9 +144,58 @@ Provider references:
 - https://support.personio.de/hc/en-us/articles/207576365-Integrate-jobs-from-Personio-into-your-website-via-XML
 - https://developer.personio.de/docs/integration-of-open-positions
 
+## USAJOBS
+
+USAJOBS uses the official federal Search API. Create an API key at
+`developer.usajobs.gov`, then set `USAJOBS_API_KEY` and the account email in
+`USAJOBS_USER_AGENT` as server-only values. The connector follows the official
+authentication headers, retries transient failures, and caps a source at five
+pages/500 records per run. It marks records as federal, uses the hiring agency
+as the employer for deduplication, and preserves both the USAJOBS detail URL and
+official application URL.
+
+```bash
+curl -X POST https://<your-domain>/api/ingest/usajobs \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <INGESTION_SECRET>' \
+  -d '{
+    "sourceKey": "bay-area-tech",
+    "keyword": "technology",
+    "location": "San Francisco, California",
+    "maxPages": 3
+  }'
+```
+
+Provider reference: https://developer.usajobs.gov/api-reference/get-api-search
+
+## The Muse
+
+The Muse public jobs API returns 20 records per zero-based page. JobMan caps a
+source at five pages, strips description markup, deduplicates by provider ID,
+and labels The Muse landing page accurately as an external source listing. The
+API works without a key at a lower documented limit, but The Muse asks apps to
+register beyond testing; set an optional server-only `THE_MUSE_API_KEY` before
+production use.
+
+```bash
+curl -X POST https://<your-domain>/api/ingest/themuse \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <INGESTION_SECRET>' \
+  -d '{
+    "sourceKey": "bay-area-services",
+    "category": "Installation, Maintenance, and Repairs",
+    "location": "San Francisco, CA",
+    "maxPages": 3
+  }'
+```
+
+Provider reference: https://www.themuse.com/developers/api/v2
+
 ## Operations
 
 - Re-running a source updates its existing documents, so the same role is not duplicated.
+- Aggregate sources use each normalized job's employer—not the marketplace name—in the shared fingerprint.
+- The protected ingestion heartbeat also checks the four official economic-news feeds and writes separate health summaries to `newsIngestionRuns` and `newsSourceFetchLogs`.
 - Schedule each source every 6–12 hours. Keep the secret in your scheduler or deployment environment, never in the browser.
 - Start with a small employer allowlist. Respect each provider's terms, rate limits, and removal requests.
 

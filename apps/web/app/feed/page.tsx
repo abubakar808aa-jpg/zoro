@@ -28,11 +28,12 @@ function NewsCard({ item, onTrackingFailure }: { item: NewsFeedItem; onTrackingF
       <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-acid-300/60 blur-2xl" />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <span className="sticker bg-acid-300 text-ink">News, no doomscroll</span>
+          <span className="sticker bg-acid-300 text-ink">{item.category?.replaceAll('_', ' ') || 'News, no doomscroll'}</span>
           <span className="text-xs font-bold uppercase tracking-wider text-primary-700">{item.sourceName}</span>
         </div>
         <h2 className="mt-5 font-display text-xl font-bold leading-snug text-ink">{item.headline}</h2>
         {item.excerpt && <p className="mt-3 text-sm leading-6 text-slate-600">{item.excerpt}</p>}
+        {item.stale && <p className="mt-3 text-xs font-bold text-amber-700">Archive sip ☕ Check the date before sharing.</p>}
         <div className="mt-5 border-t border-ink/10 pt-4 text-right">
           <a
             href={item.sourceUrl}

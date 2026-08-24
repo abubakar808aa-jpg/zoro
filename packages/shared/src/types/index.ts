@@ -2,7 +2,7 @@ export type AccountType = 'worker' | 'employer';
 export type ProfileType = 'gig' | 'professional';
 export type JobType = 'gig' | 'fulltime' | 'parttime' | 'contract';
 export type JobStatus = 'open' | 'closed';
-export type JobSourceProvider = 'manual' | 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters' | 'workable' | 'recruitee' | 'personio';
+export type JobSourceProvider = 'manual' | 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters' | 'workable' | 'recruitee' | 'personio' | 'usajobs' | 'themuse';
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 export type MessageFileType = 'image' | 'document' | 'none';
 export type ServiceRequestStatus = 'open' | 'matched' | 'booked' | 'in_progress' | 'completed' | 'cancelled';
@@ -147,6 +147,7 @@ export interface JobListing {
   alsoFoundOn?: string[];
   missingChecks?: number;
   rawProviderData?: Record<string, unknown>;
+  sourceMetadata?: Record<string, string | number | boolean | null>;
   isImported?: boolean;
 }
 
@@ -248,6 +249,9 @@ export interface NewsFeedItem {
   sourceName: string;
   sourceUrl: string;
   publishedAt: string;
+  category?: 'employment' | 'wages' | 'inflation' | 'interest_rates' | 'housing' | 'construction' | 'small_business' | 'california_bay_area' | 'economy';
+  checkedAt?: string;
+  stale?: boolean;
 }
 
 export interface Report {
