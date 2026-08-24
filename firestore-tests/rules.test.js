@@ -157,6 +157,130 @@ describe('applications', () => {
   });
 });
 
+// ── service requests: private intake, server-managed after creation ─────────
+describe('service requests', () => {
+  const requestBase = {
+    customerId: 'alice',
+    customerName: 'Alice',
+    category: 'cleaner',
+    description: 'Two-bedroom move-out cleaning.',
+    city: 'Oakland',
+    preferredDate: '2026-09-12',
+    timeWindow: 'morning',
+    estimatedDurationMinutes: 120,
+    currency: 'USD',
+    budgetMin: 140,
+    budgetMax: 220,
+    status: 'open',
+    createdAt: new Date('2026-08-22T12:00:00Z'),
+  };
+
+  test('customer can create their own open service request', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'serviceRequests/r1'), requestBase));
+  });
+
+  test('cannot create a request for another customer or pre-book it', async () => {
+    await assertFails(setDoc(doc(db('mallory'), 'serviceRequests/r1'), requestBase));
+    await assertFails(setDoc(doc(db('alice'), 'serviceRequests/r2'), {
+      ...requestBase,
+      status: 'booked',
+    }));
+  });
+
+  test('cannot create a request with a negative or inverted budget', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'serviceRequests/r1'), {
+      ...requestBase,
+      budgetMin: -1,
+    }));
+    await assertFails(setDoc(doc(db('alice'), 'serviceRequests/r2'), {
+      ...requestBase,
+      budgetMin: 300,
+      budgetMax: 200,
+    }));
+  });
+
+  test('rejects invalid duration and unsupported currency when provided', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'serviceRequests/r1'), {
+      ...requestBase,
+      estimatedDurationMinutes: 0,
+    }));
+    await assertFails(setDoc(doc(db('alice'), 'serviceRequests/r2'), {
+      ...requestBase,
+      currency: 'CAD',
+    }));
+  });
+
+  test('requests are private to the customer and admins; professionals must use the minimized API', async () => {
+    await seed('serviceRequests/r1', { ...requestBase, assignedProfessionalId: 'pro' });
+    await seed('users/boss', { uid: 'boss', accountType: 'employer', isAdmin: true });
+
+    await assertSucceeds(getDoc(doc(db('alice'), 'serviceRequests/r1')));
+    await assertFails(getDoc(doc(db('pro'), 'serviceRequests/r1')));
+    await assertSucceeds(getDoc(doc(db('boss'), 'serviceRequests/r1')));
+    await assertFails(getDoc(doc(db('stranger'), 'serviceRequests/r1')));
+  });
+
+  test('clients cannot mutate a submitted request', async () => {
+    await seed('serviceRequests/r1', requestBase);
+    await assertFails(updateDoc(doc(db('alice'), 'serviceRequests/r1'), { status: 'cancelled' }));
+    await assertFails(deleteDoc(doc(db('alice'), 'serviceRequests/r1')));
+  });
+});
+
+describe('worker gig preferences', () => {
+  const preferences = {
+    workerId: 'alice',
+    serviceArea: 'Oakland',
+    serviceRadiusMiles: 15,
+    minimumHourlyTakeHome: 40,
+    updatedAt: new Date('2026-08-22T12:00:00Z'),
+  };
+
+  test('workers can manage only their own private earnings preferences', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'workerGigPreferences/alice'), preferences));
+    await assertFails(setDoc(doc(db('mallory'), 'workerGigPreferences/alice'), preferences));
+  });
+
+  test('earnings preferences are private from other users', async () => {
+    await seed('workerGigPreferences/alice', preferences);
+    await assertSucceeds(getDoc(doc(db('alice'), 'workerGigPreferences/alice')));
+    await assertFails(getDoc(doc(db('bob'), 'workerGigPreferences/alice')));
+  });
+});
+
+describe('opportunity inbox server-owned data', () => {
+  const response = {
+    opportunityId: 'r1',
+    professionalId: 'alice',
+    decision: 'interested',
+    passReason: null,
+    createdAt: new Date('2026-08-23T12:00:00Z'),
+    updatedAt: new Date('2026-08-23T12:00:00Z'),
+  };
+
+  test('customers and professionals cannot directly read any response', async () => {
+    await seed('opportunityResponses/response1', response);
+    await assertFails(getDoc(doc(db('alice'), 'opportunityResponses/response1')));
+    await assertFails(getDoc(doc(db('customer'), 'opportunityResponses/response1')));
+    await assertFails(getDoc(doc(db('other-pro'), 'opportunityResponses/response1')));
+  });
+
+  test('clients cannot create, overwrite, or delete responses', async () => {
+    await assertFails(setDoc(doc(db('alice'), 'opportunityResponses/response1'), response));
+    await seed('opportunityResponses/response1', response);
+    await assertFails(updateDoc(doc(db('alice'), 'opportunityResponses/response1'), { decision: 'passed' }));
+    await assertFails(deleteDoc(doc(db('alice'), 'opportunityResponses/response1')));
+  });
+
+  test('marketplace events are invisible and immutable to browser clients', async () => {
+    await seed('marketplaceEvents/event1', { eventName: 'opportunity_shown', actorKey: 'abc' });
+    await assertFails(getDoc(doc(db('alice'), 'marketplaceEvents/event1')));
+    await assertFails(setDoc(doc(db('alice'), 'marketplaceEvents/fake'), {
+      eventName: 'interest_expressed', actorKey: 'spoofed',
+    }));
+  });
+});
+
 // ── conversations + messages: participants only ─────────────────────────────
 describe('conversations & messages', () => {
   test('participant can create a conversation; outsider cannot', async () => {

@@ -5,6 +5,8 @@ export type JobStatus = 'open' | 'closed';
 export type JobSourceProvider = 'manual' | 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters' | 'workable' | 'recruitee';
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 export type MessageFileType = 'image' | 'document' | 'none';
+export type ServiceRequestStatus = 'open' | 'matched' | 'booked' | 'in_progress' | 'completed' | 'cancelled';
+export type ServiceTimeWindow = 'morning' | 'afternoon' | 'evening' | 'flexible';
 
 export interface User {
   uid: string;
@@ -37,6 +39,40 @@ export interface GigProfile {
   portfolioUrls: string[];
   createdAt: Date;
 }
+
+export interface WorkerGigPreferences {
+  workerId: string;
+  serviceArea: string;
+  serviceRadiusMiles: number;
+  minimumHourlyTakeHome: number;
+  blackoutDates?: string[];
+  timezone?: string;
+  updatedAt: Date;
+}
+
+export interface ServiceRequest {
+  id: string;
+  customerId: string;
+  customerName: string;
+  category: string;
+  description: string;
+  city: string;
+  preferredDate: string;
+  timeWindow: ServiceTimeWindow;
+  estimatedDurationMinutes?: number;
+  currency?: 'USD';
+  budgetMin: number | null;
+  budgetMax: number | null;
+  status: ServiceRequestStatus;
+  assignedProfessionalId?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export type CreateServiceRequestInput = Omit<
+  ServiceRequest,
+  'id' | 'status' | 'assignedProfessionalId' | 'createdAt' | 'updatedAt'
+>;
 
 export interface ProfessionalProfile {
   uid: string;

@@ -61,6 +61,91 @@ service cloud.firestore {
         && request.auth.uid == resource.data.jobPostedBy
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
+    match /serviceRequests/{id} {
+      // The first slice stores only the service area, never a street address.
+      // Matching, booking, cancellation, and payment changes remain server-only.
+      allow create: if request.auth != null
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasAll([
+          'customerId', 'customerName', 'category', 'description', 'city',
+          'preferredDate', 'timeWindow', 'budgetMin', 'budgetMax', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'customerId', 'customerName', 'category', 'description', 'city',
+          'preferredDate', 'timeWindow', 'estimatedDurationMinutes', 'currency',
+          'budgetMin', 'budgetMax', 'status', 'createdAt'
+        ])
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() <= 120
+        && request.resource.data.category is string
+        && request.resource.data.category.size() > 0
+        && request.resource.data.category.size() <= 64
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.city is string
+        && request.resource.data.city.size() >= 2
+        && request.resource.data.city.size() <= 120
+        && request.resource.data.preferredDate is string
+        && request.resource.data.preferredDate.size() <= 10
+        && request.resource.data.timeWindow in ['morning', 'afternoon', 'evening', 'flexible']
+        && (!('estimatedDurationMinutes' in request.resource.data)
+            || (request.resource.data.estimatedDurationMinutes is int
+                && request.resource.data.estimatedDurationMinutes >= 30
+                && request.resource.data.estimatedDurationMinutes <= 720))
+        && (!('currency' in request.resource.data) || request.resource.data.currency == 'USD')
+        && (request.resource.data.budgetMin == null
+            || (request.resource.data.budgetMin is number && request.resource.data.budgetMin >= 0))
+        && (request.resource.data.budgetMax == null
+            || (request.resource.data.budgetMax is number && request.resource.data.budgetMax >= 0))
+        && (request.resource.data.budgetMin == null
+            || request.resource.data.budgetMax == null
+            || request.resource.data.budgetMax >= request.resource.data.budgetMin)
+        && request.resource.data.createdAt is timestamp;
+      // Professionals receive only the server API's redacted allowlist. Even an
+      // assigned professional cannot read the full customer request document.
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.customerId || isAdmin());
+      allow update, delete: if false;
+    }
+    match /workerGigPreferences/{uid} {
+      // A worker's earnings floor is matching input, not public profile data.
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || isAdmin());
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.workerId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'workerId', 'serviceArea', 'serviceRadiusMiles',
+          'minimumHourlyTakeHome', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'workerId', 'serviceArea', 'serviceRadiusMiles',
+          'minimumHourlyTakeHome', 'updatedAt'
+        ])
+        && request.resource.data.serviceArea is string
+        && request.resource.data.serviceArea.size() >= 2
+        && request.resource.data.serviceArea.size() <= 120
+        && request.resource.data.serviceRadiusMiles is number
+        && request.resource.data.serviceRadiusMiles >= 1
+        && request.resource.data.serviceRadiusMiles <= 100
+        && request.resource.data.minimumHourlyTakeHome is number
+        && request.resource.data.minimumHourlyTakeHome >= 1
+        && request.resource.data.minimumHourlyTakeHome <= 1000
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /opportunityResponses/{id} {
+      // Responses are created and read only by authenticated server routes.
+      // This prevents customer and cross-professional access even if a browser
+      // guesses the deterministic response document ID.
+      allow read, write: if false;
+    }
+    match /marketplaceEvents/{id} {
+      // Privacy-safe operational telemetry is server-only.
+      allow read, write: if false;
+    }
     match /conversations/{id} {
       allow create: if request.auth != null
         && request.auth.uid in request.resource.data.participants;
@@ -98,4 +183,3 @@ service cloud.firestore {
     }
   }
 }
-

@@ -111,6 +111,11 @@ export default function DashboardPage() {
         <div className="card">
           <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">🔗 Quick Actions</h2>
           <div className="space-y-2">
+            {accountType === 'worker' && (
+              <Link href="/dashboard/opportunities" className="flex items-center gap-3 rounded-xl border-2 border-ink bg-acid-200 p-3 text-sm font-bold text-ink shadow-pop-sm transition-transform hover:-translate-y-0.5 motion-reduce:transform-none">
+                🧰 Open My Opportunity Inbox
+              </Link>
+            )}
             <Link href="/jobs" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-primary-50 transition-colors text-sm font-medium text-slate-700">
               📋 Browse Job Listings
             </Link>
