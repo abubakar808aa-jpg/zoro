@@ -14,7 +14,7 @@ import type {
 
 export const JOBS_PAGE_SIZE = 20;
 const DISCOVERY_SAMPLE_SIZE = 5;
-const DISCOVERY_PROVIDERS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee'] as const;
+const DISCOVERY_PROVIDERS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio'] as const;
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 

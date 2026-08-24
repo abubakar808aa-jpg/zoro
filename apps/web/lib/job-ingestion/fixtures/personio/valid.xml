@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+  <position>
+    <id>4103</id>
+    <subcompany>Acme Services</subcompany>
+    <office>San Francisco</office>
+    <department>Technology</department>
+    <recruitingCategory>Engineering</recruitingCategory>
+    <name>Platform Engineer</name>
+    <jobDescriptions>
+      <jobDescription>
+        <name>What you will do</name>
+        <value><![CDATA[<p>Build reliable systems &amp; help customers.</p><ul><li>Ship safely</li><li>No drama</li></ul>]]></value>
+      </jobDescription>
+      <jobDescription>
+        <name>Your profile</name>
+        <value><![CDATA[<p>Kind, curious, and experienced.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>platform,remote,security</keywords>
+    <occupation>software_development</occupation>
+    <occupationCategory>information_technology</occupationCategory>
+    <createdAt>2026-08-20T12:14:07+0200</createdAt>
+  </position>
+  <position>
+    <id>4104</id>
+    <office>Remote</office>
+    <department>Design</department>
+    <recruitingCategory>Creative</recruitingCategory>
+    <name>Product Design Intern</name>
+    <jobDescriptions>
+      <jobDescription>
+        <name>The gig</name>
+        <value><![CDATA[<p>Make confusing flows feel suspiciously easy.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+    <employmentType>intern</employmentType>
+    <schedule>part-time</schedule>
+    <createdAt>2026-08-21T09:00:00+0200</createdAt>
+  </position>
+</workzag-jobs>

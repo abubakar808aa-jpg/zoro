@@ -2,6 +2,7 @@ import type { JobSourceProvider } from '@jobman/shared/src/types';
 import { fetchAshbyJobs } from './ashby';
 import { fetchGreenhouseJobs } from './greenhouse';
 import { fetchLeverJobs } from './lever';
+import { fetchPersonioJobs, isPersonioLanguage, type PersonioLanguage } from './personio';
 import { fetchRecruiteeJobs } from './recruitee';
 import { fetchSmartRecruitersJobs } from './smartrecruiters';
 import { fetchWorkableJobs } from './workable';
@@ -15,14 +16,17 @@ export type ScheduledJobSource = {
   active?: boolean;
   region?: 'global' | 'eu';
   credentialEnvKey?: string;
+  language?: PersonioLanguage;
 };
 
 export function validateScheduledSource(value: unknown): ScheduledJobSource | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Partial<ScheduledJobSource>;
-  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee'];
+  const providers: ScheduledJobSource['provider'][] = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio'];
   if (!source.provider || !providers.includes(source.provider)) return null;
   if (!source.sourceKey?.trim() || !source.companyName?.trim()) return null;
+  const rawLanguage = (source as { language?: unknown }).language;
+  if (source.provider === 'personio' && rawLanguage !== undefined && !isPersonioLanguage(rawLanguage)) return null;
   return {
     provider: source.provider,
     sourceKey: source.sourceKey.trim(),
@@ -31,6 +35,7 @@ export function validateScheduledSource(value: unknown): ScheduledJobSource | nu
     active: source.active !== false,
     region: source.region === 'eu' ? 'eu' : 'global',
     credentialEnvKey: source.credentialEnvKey?.trim() || undefined,
+    language: source.provider === 'personio' && isPersonioLanguage(rawLanguage) ? rawLanguage : undefined,
   };
 }
 
@@ -72,6 +77,14 @@ export async function fetchScheduledSource(source: ScheduledJobSource) {
         sourceKey: source.sourceKey,
         companyName: source.companyName,
         careersUrl: source.careersUrl,
+      });
+      break;
+    case 'personio':
+      jobs = await fetchPersonioJobs({
+        sourceKey: source.sourceKey,
+        companyName: source.companyName,
+        careersUrl: source.careersUrl,
+        language: source.language,
       });
       break;
   }

@@ -1,8 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import type { JobListing, JobSourceProvider } from '@jobman/shared/src/types';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '../firebase-admin.ts';
 import type { ImportedJob } from './greenhouse';
-import { normalizeJobDescription } from '@/lib/job-description';
+import { normalizeJobDescription } from '../job-description.ts';
 
 export function stripHtml(content = '') {
   return normalizeJobDescription(content);

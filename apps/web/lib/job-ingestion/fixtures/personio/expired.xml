@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A previously seen role is absent. The shared ingestion lifecycle counts the
+     successful miss and closes it after the third successful source check. -->
+<workzag-jobs></workzag-jobs>

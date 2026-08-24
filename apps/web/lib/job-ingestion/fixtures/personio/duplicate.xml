@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+  <position>
+    <id>4103</id>
+    <office>San Francisco</office>
+    <name>Platform Engineer</name>
+    <jobDescriptions><jobDescription><name>Role</name><value><![CDATA[<p>First copy.</p>]]></value></jobDescription></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <schedule>full-time</schedule>
+    <createdAt>2026-08-20T12:14:07+0200</createdAt>
+  </position>
+  <position>
+    <id>4103</id>
+    <office>San Francisco</office>
+    <name>Platform Engineer</name>
+    <jobDescriptions><jobDescription><name>Role</name><value><![CDATA[<p>Updated copy.</p>]]></value></jobDescription></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <schedule>full-time</schedule>
+    <createdAt>2026-08-20T12:14:07+0200</createdAt>
+  </position>
+</workzag-jobs>

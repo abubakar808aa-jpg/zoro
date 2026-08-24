@@ -1,4 +1,5 @@
-import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import type { App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Server-side Firestore with full privileges — used where security rules must

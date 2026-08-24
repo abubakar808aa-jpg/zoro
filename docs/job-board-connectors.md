@@ -15,7 +15,8 @@ Active source records in Firestore and sources in `CONNECTOR_SOURCES_JSON` are r
   { "provider": "ashby", "sourceKey": "ramp", "companyName": "Ramp" },
   { "provider": "smartrecruiters", "sourceKey": "smartrecruiters", "companyName": "SmartRecruiters" },
   { "provider": "workable", "sourceKey": "commonapp", "companyName": "Common App" },
-  { "provider": "recruitee", "sourceKey": "resourcefultalentgroup", "companyName": "Resourceful Talent Group" }
+  { "provider": "recruitee", "sourceKey": "resourcefultalentgroup", "companyName": "Resourceful Talent Group" },
+  { "provider": "personio", "sourceKey": "acme", "companyName": "Acme", "language": "en" }
 ]
 ```
 
@@ -106,6 +107,40 @@ curl -X POST https://<your-domain>/api/ingest/recruitee \
 ```
 
 Provider reference: https://docs.recruitee.com/reference/offers
+
+## Personio
+
+Personio publishes open roles as one public XML feed when the employer enables
+the XML interface. Use the tenant from `<tenant>.jobs.personio.de`; `language`
+may be `de`, `en`, `fr`, `es`, `nl`, `it`, or `pt`. The feed is complete rather
+than paginated. JobMan validates and size-limits the XML, rejects document/entity
+declarations, retries transient failures at most three times, normalizes HTML
+descriptions, and sends every application to Personio's official
+`https://<tenant>.jobs.personio.de/job/<id>` page.
+
+```bash
+curl -X POST https://<your-domain>/api/ingest/personio \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <INGESTION_SECRET>' \
+  -d '{
+    "sourceKey": "acme",
+    "companyName": "Acme",
+    "careersUrl": "https://acme.example/careers",
+    "language": "en"
+  }'
+```
+
+An empty successful feed is valid. Roles missing from three successful source
+checks are closed by the shared ingestion lifecycle; a failed fetch never closes
+jobs. Check `sourceFetchLogs` for status, duration, counts, and the structured
+connector error, and `jobSources/personio_<tenant>` for the latest health fields.
+If the endpoint returns `INVALID_XML`, first confirm the employer has enabled its
+Personio XML interface and that the configured tenant is correct.
+
+Provider references:
+
+- https://support.personio.de/hc/en-us/articles/207576365-Integrate-jobs-from-Personio-into-your-website-via-XML
+- https://developer.personio.de/docs/integration-of-open-positions
 
 ## Operations
 

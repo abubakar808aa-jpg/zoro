@@ -31,7 +31,7 @@ export default function JobCard({ job, featured = false }: { job: JobListing; fe
 
   const cfg = typeConfig[job.type] ?? { color: 'bg-slate-100 text-slate-600', label: job.type, bar: 'from-slate-300 to-slate-400' };
   const sourceLabel = job.sourceProvider
-    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', manual: 'JobMan' } as const)[job.sourceProvider]
+    ? ({ greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby', smartrecruiters: 'SmartRecruiters', workable: 'Workable', recruitee: 'Recruitee', personio: 'Personio', manual: 'JobMan' } as const)[job.sourceProvider]
     : 'JobMan';
   const isExternal = Boolean(job.isImported && job.applyUrl);
   const cardClassName = `block bg-white rounded-3xl border-2 border-ink hover:-translate-y-1 transition-all overflow-hidden group ${featured ? 'shadow-pop-lime' : 'shadow-pop-sm hover:shadow-pop'}`;
