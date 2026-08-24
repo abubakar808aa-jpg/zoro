@@ -1,69 +1,93 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { validateInteractionEvent } from '@/lib/analytics-contract';
 
 export const runtime = 'nodejs';
+const MAX_EVENT_BYTES = 4_096;
 
-function safeText(value: unknown, max = 160) {
-  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+function jsonError(error: string, status: number) {
+  return NextResponse.json(
+    { error },
+    { status, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
+
   try {
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) {
-      return NextResponse.json({ error: 'Cross-site events are not accepted' }, { status: 403 });
+      return jsonError('Cross-site events are not accepted', 403);
     }
 
-    const body = await request.json() as Record<string, unknown>;
+    const declaredLength = Number(request.headers.get('content-length') || 0);
+    if (declaredLength > MAX_EVENT_BYTES) return jsonError('Event payload is too large', 413);
+
+    const rawBody = await request.text();
+    if (!rawBody || new TextEncoder().encode(rawBody).byteLength > MAX_EVENT_BYTES) {
+      return jsonError('Event payload is invalid', 400);
+    }
+
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return jsonError('Event payload is invalid', 400);
+    }
+
+    const validation = validateInteractionEvent(body);
+    if (!validation.ok) return jsonError(validation.error, 400);
+
+    const event = validation.event;
     const db = getAdminDb();
 
-    if (body.type === 'job_apply_click') {
-      const jobId = safeText(body.jobId, 240);
-      if (!jobId) return NextResponse.json({ error: 'jobId is required' }, { status: 400 });
-      const job = await db.collection('jobs').doc(jobId).get();
+    if (event.type === 'job_apply_click') {
+      const job = await db.collection('jobs').doc(event.jobId).get();
       const data = job.data();
       if (!job.exists || data?.isImported !== true || typeof data.applyUrl !== 'string') {
-        return NextResponse.json({ error: 'Imported job not found' }, { status: 404 });
+        return jsonError('Imported job not found', 404);
       }
+
+      let destination: URL;
+      try {
+        destination = new URL(data.applyUrl);
+      } catch {
+        return jsonError('Imported job destination is invalid', 422);
+      }
+      if (!['http:', 'https:'].includes(destination.protocol)) {
+        return jsonError('Imported job destination is invalid', 422);
+      }
+
       await db.collection('interactionEvents').add({
         type: 'job_apply_click',
-        jobId,
+        jobId: event.jobId,
         sourceProvider: data.sourceProvider ?? 'unknown',
         sourceKey: data.sourceKey ?? null,
-        destinationHost: new URL(data.applyUrl).hostname,
+        destinationHost: destination.hostname,
         createdAt: FieldValue.serverTimestamp(),
       });
-      return new NextResponse(null, { status: 204 });
+      return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    if (body.type === 'news_open') {
-      const newsId = safeText(body.newsId, 240);
-      const sourceName = safeText(body.sourceName, 120);
-      const sourceUrl = safeText(body.sourceUrl, 2_000);
-      if (!newsId || !sourceName || !sourceUrl) {
-        return NextResponse.json({ error: 'News event details are required' }, { status: 400 });
-      }
-      let parsed: URL;
-      try {
-        parsed = new URL(sourceUrl);
-      } catch {
-        return NextResponse.json({ error: 'News source URL is invalid' }, { status: 400 });
-      }
-      if (parsed.protocol !== 'https:') return NextResponse.json({ error: 'News source must use HTTPS' }, { status: 400 });
+    if (event.type === 'news_open') {
       await db.collection('interactionEvents').add({
         type: 'news_open',
-        newsId,
-        sourceName,
-        destinationHost: parsed.hostname,
+        newsId: event.newsId,
+        sourceName: event.sourceName,
         createdAt: FieldValue.serverTimestamp(),
       });
-      return new NextResponse(null, { status: 204 });
+      return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    return NextResponse.json({ error: 'Unsupported event type' }, { status: 400 });
+    return jsonError('Unsupported event type', 400);
   } catch (error) {
-    console.error('[interaction event]', error);
-    return NextResponse.json({ error: 'Unable to record interaction' }, { status: 500 });
+    console.error(JSON.stringify({
+      event: 'interaction_event_failed',
+      requestId,
+      error: error instanceof Error ? error.message : 'unknown',
+    }));
+    return jsonError('Unable to record interaction', 500);
   }
 }

@@ -8,6 +8,7 @@ import { getJob, applyToJob, getProfile, setJobStatus, deleteJob } from '@/lib/f
 import { generateCoverLetter, vibeCheckJob, analyzeSkillGaps, checkSalaryFairness, type VibeCheck, type SkillGaps, type SalaryIntel } from '@/lib/ai';
 import { useAuth } from '@/components/AuthProvider';
 import { logInteraction } from '@/lib/analytics';
+import { normalizeJobDescription } from '@/lib/job-description';
 import { GEN_Z_TAGS, type JobListing } from '@jobman/shared/src/types';
 
 function salaryString(job: JobListing): string {
@@ -47,6 +48,7 @@ export default function JobDetailPage() {
   const [gapsLoading, setGapsLoading] = useState(false);
   const [salaryIntel, setSalaryIntel] = useState<SalaryIntel | null>(null);
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [trackingNotice, setTrackingNotice] = useState('');
 
   async function handleVibeCheck() {
     if (!job) return;
@@ -162,6 +164,7 @@ export default function JobDetailPage() {
   const checkedDate = asDate(job.lastSeenAt);
   const posted = postedDate ? formatDistanceToNow(postedDate, { addSuffix: true }) : '';
   const checked = checkedDate ? formatDistanceToNow(checkedDate, { addSuffix: true }) : '';
+  const description = normalizeJobDescription(job.description);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -233,7 +236,7 @@ export default function JobDetailPage() {
         <hr className="my-5 border-slate-100" />
 
         <h2 className="font-semibold text-slate-900 mb-2">Job Description</h2>
-        <p className="text-slate-600 whitespace-pre-wrap text-sm leading-relaxed">{job.description}</p>
+        <p className="text-slate-600 whitespace-pre-wrap text-sm leading-relaxed">{description}</p>
 
         {job.requirements?.length > 0 && (
           <>
@@ -302,12 +305,20 @@ export default function JobDetailPage() {
           <a
             href={job.applyUrl}
             target="_blank"
-            rel="noreferrer"
-            onClick={() => logInteraction({ type: 'job_apply_click', jobId: job.id })}
+            rel="noopener noreferrer"
+            onClick={() => logInteraction(
+              { type: 'job_apply_click', jobId: job.id },
+              () => setTrackingNotice('The employer page opened, but our click counter took a coffee break.'),
+            )}
             className="btn-primary mt-5 inline-flex"
           >
             Apply on the employer site ↗
           </a>
+          {trackingNotice && (
+            <p role="status" aria-live="polite" className="mt-3 text-xs font-semibold text-amber-700">
+              {trackingNotice}
+            </p>
+          )}
         </div>
       ) : accountType !== 'employer' && job.status !== 'open' ? (
         <div className="card text-center py-8">

@@ -22,7 +22,7 @@ function eventTime(value: unknown) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function NewsCard({ item }: { item: NewsFeedItem }) {
+function NewsCard({ item, onTrackingFailure }: { item: NewsFeedItem; onTrackingFailure: () => void }) {
   return (
     <article className="relative overflow-hidden rounded-3xl border-2 border-ink bg-[#f4edff] p-5 shadow-pop-sm transition duration-300 hover:-translate-y-1 hover:shadow-pop">
       <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-acid-300/60 blur-2xl" />
@@ -38,7 +38,10 @@ function NewsCard({ item }: { item: NewsFeedItem }) {
             href={item.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => logInteraction({ type: 'news_open', newsId: item.id, sourceName: item.sourceName, sourceUrl: item.sourceUrl })}
+            onClick={() => logInteraction(
+              { type: 'news_open', newsId: item.id, sourceName: item.sourceName },
+              onTrackingFailure,
+            )}
             className="font-display text-sm font-bold text-ink hover:text-primary-700"
           >
             Read at the original source ↗
@@ -149,7 +152,7 @@ export default function FeedPage() {
       </div>
 
       {notice && (
-        <div className="sticker bg-acid-300 mb-5">{notice}</div>
+        <div role="status" aria-live="polite" className="sticker bg-acid-300 mb-5">{notice}</div>
       )}
 
       {user ? (
@@ -195,7 +198,10 @@ export default function FeedPage() {
             <Reveal key={`${entry.kind}-${entry.item.id}`} delay={(index % 4) * 45}>
               {entry.kind === 'activity'
                 ? <FeedCard event={entry.item} onReport={handleReport} />
-                : <NewsCard item={entry.item} />}
+                : <NewsCard
+                    item={entry.item}
+                    onTrackingFailure={() => setNotice('The article opened, but our tiny click counter tripped over its shoelaces.')}
+                  />}
             </Reveal>
           ))}
           {visibleCount < stream.length && (
