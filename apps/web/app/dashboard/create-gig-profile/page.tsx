@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { saveGigProfile, uploadProfilePhoto, getProfile } from '@/lib/firestore';
+import {
+  saveGigProfile,
+  uploadProfilePhoto,
+  getProfile,
+  getWorkerGigPreferences,
+  saveWorkerGigPreferences,
+} from '@/lib/firestore';
 import { GIG_CATEGORIES, US_STATES } from '@jobman/shared/src/constants/categories';
 import { generateBio } from '@/lib/ai';
 import { importFromLinkedIn, isLinkedInConfigured } from '@/lib/linkedin';
@@ -19,6 +25,9 @@ export default function CreateGigProfilePage() {
     hourlyRate: '',
     location: '',
     availability: 'full-time' as 'full-time' | 'part-time' | 'weekends',
+    serviceArea: '',
+    serviceRadiusMiles: '15',
+    minimumHourlyTakeHome: '',
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -32,7 +41,7 @@ export default function CreateGigProfilePage() {
   // Prefill when an existing gig profile is being edited
   useEffect(() => {
     if (!user) return;
-    getProfile(user.uid).then(p => {
+    Promise.all([getProfile(user.uid), getWorkerGigPreferences(user.uid)]).then(([p, preferences]) => {
       if (!p || p.type !== 'gig') return;
       setEditing(true);
       setForm({
@@ -42,6 +51,9 @@ export default function CreateGigProfilePage() {
         hourlyRate: p.hourlyRate ? String(p.hourlyRate) : '',
         location: p.location ?? '',
         availability: (p.availability as any) || 'full-time',
+        serviceArea: preferences?.serviceArea ?? '',
+        serviceRadiusMiles: preferences ? String(preferences.serviceRadiusMiles) : '15',
+        minimumHourlyTakeHome: preferences ? String(preferences.minimumHourlyTakeHome) : '',
       });
       if (p.photoURL) setPhotoPreview(p.photoURL);
     }).catch(() => {});
@@ -108,6 +120,9 @@ export default function CreateGigProfilePage() {
     if (!form.bio.trim()) { setError('Please add a short bio.'); return; }
     if (!form.hourlyRate || Number(form.hourlyRate) <= 0) { setError('Please enter a valid hourly rate.'); return; }
     if (!form.location) { setError('Please select your state.'); return; }
+    if (!form.serviceArea.trim()) { setError('Please add your main service city.'); return; }
+    if (Number(form.serviceRadiusMiles) < 1 || Number(form.serviceRadiusMiles) > 100) { setError('Service radius must be between 1 and 100 miles.'); return; }
+    if (!form.minimumHourlyTakeHome || Number(form.minimumHourlyTakeHome) <= 0) { setError('Please add the minimum hourly take-home that makes a gig worthwhile.'); return; }
 
     setSaving(true);
     setError('');
@@ -125,6 +140,11 @@ export default function CreateGigProfilePage() {
         hourlyRate: Number(form.hourlyRate),
         location: form.location,
         availability: form.availability,
+      });
+      await saveWorkerGigPreferences(user.uid, {
+        serviceArea: form.serviceArea.trim(),
+        serviceRadiusMiles: Number(form.serviceRadiusMiles),
+        minimumHourlyTakeHome: Number(form.minimumHourlyTakeHome),
       });
 
       router.push('/dashboard');
@@ -256,6 +276,62 @@ export default function CreateGigProfilePage() {
             ))}
           </div>
         </div>
+
+        <fieldset className="rounded-3xl border-2 border-ink bg-acid-100 p-5 shadow-pop-sm">
+          <legend className="px-2 font-display text-lg font-bold text-ink">Your “worth leaving the couch” settings</legend>
+          <p className="mb-4 text-sm leading-relaxed text-slate-700">
+            These stay private. Later, JobMan will use them to skip low-value trips and show your estimated take-home pay.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="service-area" className="block text-sm font-medium text-slate-700 mb-1">Main service city</label>
+              <input
+                id="service-area"
+                className="input"
+                placeholder="e.g. Oakland"
+                value={form.serviceArea}
+                onChange={e => set('serviceArea', e.target.value)}
+                maxLength={120}
+                required
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="service-radius" className="block text-sm font-medium text-slate-700 mb-1">Travel radius</label>
+                <div className="relative">
+                  <input
+                    id="service-radius"
+                    className="input pr-16"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={form.serviceRadiusMiles}
+                    onChange={e => set('serviceRadiusMiles', e.target.value)}
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">miles</span>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="minimum-take-home" className="block text-sm font-medium text-slate-700 mb-1">Minimum take-home per hour</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                  <input
+                    id="minimum-take-home"
+                    className="input pl-8"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    placeholder="40"
+                    value={form.minimumHourlyTakeHome}
+                    onChange={e => set('minimumHourlyTakeHome', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </fieldset>
 
         {error && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 

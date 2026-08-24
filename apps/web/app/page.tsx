@@ -167,7 +167,7 @@ export default function LandingPage() {
             </div>
             <div className="mt-9 flex flex-wrap gap-4">
               <Link href="/jobs" className="motion-cta motion-cta-violet group rounded-2xl px-5 py-3 font-bold text-white">Explore job listings <span className="cta-arrow" aria-hidden="true">→</span></Link>
-              <Link href="/gigs" className="motion-cta motion-cta-outline rounded-2xl px-5 py-3 font-bold text-ink">Browse local talent</Link>
+              <Link href="/gigs" className="motion-cta motion-cta-outline rounded-2xl px-5 py-3 font-bold text-ink">Browse local talent <span className="cta-arrow" aria-hidden="true">→</span></Link>
             </div>
           </Reveal>
 

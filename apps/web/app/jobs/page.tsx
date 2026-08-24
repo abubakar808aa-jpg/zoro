@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import JobCard from '@/components/JobCard';
-import { getJobs, getBoostedJobs, getProfile } from '@/lib/firestore';
+import { getJobs, getDiscoveryJobs, getBoostedJobs, getProfile } from '@/lib/firestore';
 import { useAuth } from '@/components/AuthProvider';
 import { parseJobSearch, type ParsedSearch } from '@/lib/ai';
 import { scoreJobMatch } from '@jobman/shared/src/utils/matching';
@@ -29,13 +29,14 @@ export default function JobsPage() {
   const [aiSearching, setAiSearching] = useState(false);
   const [aiError, setAiError] = useState('');
   const [profile, setProfile] = useState<GigProfile | ProfessionalProfile | null>(null);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const [boostedJobs, setBoostedJobs] = useState<JobListing[]>([]);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      getJobs(typeFilter ? { type: typeFilter } : undefined),
+      getDiscoveryJobs(typeFilter ? { type: typeFilter } : undefined),
       getBoostedJobs().catch(() => [] as JobListing[]),
     ])
       .then(([{ jobs, lastDoc }, boosted]) => {
@@ -43,6 +44,7 @@ export default function JobsPage() {
         setBoostedJobs(pinned);
         setJobs(jobs.filter(j => !pinned.some(b => b.id === j.id)));
         setLastDoc(lastDoc);
+        setVisibleCount(20);
       })
       .finally(() => setLoading(false));
   }, [typeFilter]);
@@ -58,11 +60,16 @@ export default function JobsPage() {
   }, [user]);
 
   async function loadMore() {
+    if (visibleCount < jobs.length) {
+      setVisibleCount(count => Math.min(count + 20, jobs.length));
+      return;
+    }
     if (!lastDoc) return;
     setLoadingMore(true);
     try {
       const { jobs: more, lastDoc: next } = await getJobs(typeFilter ? { type: typeFilter } : undefined, lastDoc);
       setJobs(prev => [...prev, ...more]);
+      setVisibleCount(count => count + more.length);
       setLastDoc(next);
     } finally {
       setLoadingMore(false);
@@ -113,6 +120,7 @@ export default function JobsPage() {
   if (profile) {
     filtered = [...filtered].sort((a, b) => scoreJobMatch(b, profile) - scoreJobMatch(a, profile));
   }
+  const visibleJobs = filtered.slice(0, visibleCount);
 
   const aiSummary = aiFilters
     ? [
@@ -128,7 +136,7 @@ export default function JobsPage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Job Listings</h1>
-          <p className="text-slate-500 mt-1">Showing {jobs.length} open position{jobs.length !== 1 ? 's' : ''}</p>
+          <p className="text-slate-500 mt-1">Showing {visibleJobs.length} open position{visibleJobs.length !== 1 ? 's' : ''}</p>
           {profile && <p className="text-xs text-violet-600 mt-1">✨ Sorted by best match for your profile</p>}
         </div>
         {user && accountType === 'employer' && (
@@ -191,9 +199,9 @@ export default function JobsPage() {
         <>
           <div className="space-y-4">
             {!aiFilters && !search && boostedJobs.map(j => <JobCard key={j.id} job={j} featured />)}
-            {filtered.map(j => <JobCard key={j.id} job={j} />)}
+            {visibleJobs.map(j => <JobCard key={j.id} job={j} />)}
           </div>
-          {lastDoc && !aiFilters && !search && (
+          {(visibleCount < filtered.length || lastDoc) && !aiFilters && !search && (
             <div className="text-center mt-8">
               <button type="button" onClick={loadMore} disabled={loadingMore} className="btn-secondary">
                 {loadingMore ? 'Loading…' : 'Load More Jobs'}

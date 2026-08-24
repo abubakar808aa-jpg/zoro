@@ -7,6 +7,19 @@ function rgb(hex: string): string {
   return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
 }
 
+export type ColorMode = 'light' | 'dark';
+
+export const COLOR_MODE_STORAGE_KEY = 'jobman-color-mode';
+
+export function resolveColorMode(storedMode: string | null, prefersDark: boolean): ColorMode {
+  if (storedMode === 'light' || storedMode === 'dark') return storedMode;
+  return prefersDark ? 'dark' : 'light';
+}
+
+export function nextColorMode(currentMode: ColorMode): ColorMode {
+  return currentMode === 'dark' ? 'light' : 'dark';
+}
+
 export interface DailyTheme {
   name: string;
   emoji: string;
@@ -66,5 +79,5 @@ export function getDailyTheme(date = new Date()): DailyTheme {
 // using the visitor's local day, so static pages stay theme-correct.
 export function themeInitScript(): string {
   const varsByDay = THEMES.map(t => t.vars);
-  return `(function(){var v=${JSON.stringify(varsByDay)}[new Date().getDay()];for(var k in v)document.documentElement.style.setProperty(k,v[k]);})();`;
+  return `(function(){var r=document.documentElement,v=${JSON.stringify(varsByDay)}[new Date().getDay()];for(var k in v)r.style.setProperty(k,v[k]);var s=null;try{s=localStorage.getItem('${COLOR_MODE_STORAGE_KEY}')}catch(e){}var d=s==='dark'||(s!=='light'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);r.classList.toggle('dark',d);r.style.colorScheme=d?'dark':'light';})();`;
 }

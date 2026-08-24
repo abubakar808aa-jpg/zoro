@@ -9,10 +9,12 @@ import { db, storage } from './firebase';
 import type {
   JobListing, GigProfile, ProfessionalProfile, Message, Conversation,
   Application, ApplicationStatus, JobStatus,
-  Follow, FeedEvent, Report, User,
+  Follow, FeedEvent, Report, User, CreateServiceRequestInput, WorkerGigPreferences,
 } from '@jobman/shared/src/types';
 
 export const JOBS_PAGE_SIZE = 20;
+const DISCOVERY_SAMPLE_SIZE = 5;
+const DISCOVERY_PROVIDERS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee'] as const;
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +48,69 @@ export async function getJobs(
   return {
     jobs: snap.docs.map(d => ({ ...d.data(), id: d.id } as JobListing)),
     lastDoc: snap.docs.length === JOBS_PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+function jobTimestamp(job: JobListing) {
+  const value = job.lastSeenAt || job.createdAt;
+  if (value && typeof value === 'object' && 'toMillis' in value) {
+    return Number((value as unknown as { toMillis: () => number }).toMillis());
+  }
+  if (value && typeof value === 'object' && 'seconds' in value) {
+    return Number((value as unknown as { seconds: number }).seconds) * 1_000;
+  }
+  const parsed = Date.parse(String(value || ''));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function diversifyByCompany(jobs: JobListing[]) {
+  const groups = new Map<string, JobListing[]>();
+  for (const job of jobs) {
+    const company = job.postedByName.trim().toLowerCase() || 'unknown';
+    const group = groups.get(company) ?? [];
+    group.push(job);
+    groups.set(company, group);
+  }
+
+  const pools = Array.from(groups.values())
+    .map(group => group.sort((a, b) => jobTimestamp(b) - jobTimestamp(a)))
+    .sort((a, b) => jobTimestamp(b[0]) - jobTimestamp(a[0]));
+  const diversified: JobListing[] = [];
+  while (pools.some(pool => pool.length)) {
+    for (const pool of pools) {
+      const next = pool.shift();
+      if (next) diversified.push(next);
+    }
+  }
+  return diversified;
+}
+
+// The newest batch can be dominated by one large ATS import. Blend a small
+// sample from every supported provider into the first page, then interleave by
+// company so users see an actual marketplace instead of one employer wall.
+export async function getDiscoveryJobs(filters?: { type?: string }) {
+  const recentRequest = getJobs(filters);
+  const providerRequests = DISCOVERY_PROVIDERS.map(provider => {
+    const constraints: any[] = [
+      where('status', '==', 'open'),
+      where('sourceProvider', '==', provider),
+    ];
+    if (filters?.type) constraints.push(where('type', '==', filters.type));
+    constraints.push(limit(DISCOVERY_SAMPLE_SIZE));
+    return getDocs(query(collection(db, 'jobs'), ...constraints));
+  });
+
+  const [recent, ...providerSnapshots] = await Promise.all([recentRequest, ...providerRequests]);
+  const unique = new Map(recent.jobs.map(job => [job.id, job]));
+  for (const snapshot of providerSnapshots) {
+    for (const document of snapshot.docs) {
+      unique.set(document.id, { ...document.data(), id: document.id } as JobListing);
+    }
+  }
+
+  return {
+    jobs: diversifyByCompany(Array.from(unique.values())),
+    lastDoc: recent.lastDoc,
   };
 }
 // Boosted jobs are queried separately (not merged into the paginated query):
@@ -130,6 +195,33 @@ export async function getMyApplications(applicantId: string) {
 
 export async function updateApplicationStatus(id: string, status: ApplicationStatus) {
   await updateDoc(doc(db, 'applications', id), { status });
+}
+
+// ── Home services ─────────────────────────────────────────────────────────
+
+export async function createServiceRequest(data: CreateServiceRequestInput) {
+  const requestRef = await addDoc(collection(db, 'serviceRequests'), {
+    ...data,
+    status: 'open',
+    createdAt: serverTimestamp(),
+  });
+  return requestRef.id;
+}
+
+export async function getWorkerGigPreferences(uid: string) {
+  const snap = await getDoc(doc(db, 'workerGigPreferences', uid));
+  return snap.exists() ? snap.data() as WorkerGigPreferences : null;
+}
+
+export async function saveWorkerGigPreferences(
+  uid: string,
+  data: Pick<WorkerGigPreferences, 'serviceArea' | 'serviceRadiusMiles' | 'minimumHourlyTakeHome'>,
+) {
+  await setDoc(doc(db, 'workerGigPreferences', uid), {
+    ...data,
+    workerId: uid,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 // ── Profiles ─────────────────────────────────────────────────────────────
